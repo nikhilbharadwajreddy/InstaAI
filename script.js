@@ -8,18 +8,26 @@ document.getElementById("loginBtn").addEventListener("click", function() {
 });
 
 
-document.getElementById("webhookTestBtn").addEventListener("click", async function() {
-    try {
-        const response = await fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/webhook", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ test: "Webhook Triggered!" })
-        });
+document.addEventListener("DOMContentLoaded", function () {
+    // Ensure the button exists before adding event listener
+    const webhookButton = document.getElementById("testWebhook");
+    if (webhookButton) {
+        webhookButton.addEventListener("click", async function() {
+            try {
+                const response = await fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/webhook", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ test: "Webhook Triggered!" })
+                });
 
-        const data = await response.json();
-        document.getElementById("responseBox").innerText = JSON.stringify(data, null, 2);
-    } catch (error) {
-        document.getElementById("responseBox").innerText = "Error: " + error.message;
+                const data = await response.json();
+                document.getElementById("output").innerText = JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById("output").innerText = "Error: " + error.message;
+            }
+        });
+    } else {
+        console.error("Webhook button not found!");
     }
 });
 
