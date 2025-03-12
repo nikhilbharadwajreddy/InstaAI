@@ -1,11 +1,22 @@
-document.getElementById("loginBtn").addEventListener("click", function() {
-    window.location.href =
-    "https://www.instagram.com/oauth/authorize" +
-    "?client_id=2388890974807228" +
-    "&redirect_uri=https://nikhilbharadwajreddy.github.io/InstaAI/insta_redirect.html" +
-    "&response_type=code" +
-    "&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights,pages_show_list,pages_read_engagement,business_management";
+// script.js - Updated OAuth Login for Instagram
+document.addEventListener("DOMContentLoaded", function() {
+    const loginBtn = document.getElementById("loginBtn");
+    if (loginBtn) {
+        loginBtn.addEventListener("click", function() {
+            const clientId = "2388890974807228";
+            const redirectUri = encodeURIComponent("https://nikhilbharadwajreddy.github.io/InstaAI/insta_redirect.html");
+            // Build scope string; encodeURIComponent converts commas to %2C
+            const scope = encodeURIComponent("instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights");
+            
+            // Construct the OAuth URL with additional parameters
+            const oauthUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
+            
+            // Redirect to Instagram's OAuth login page
+            window.location.href = oauthUrl;
+        });
+    }
 });
+
 
 
 
