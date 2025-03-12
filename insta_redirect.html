@@ -45,84 +45,247 @@
             font-weight: bold;
             margin: 20px 0;
         }
+        .debug-info {
+            text-align: left;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 30px;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .success-message {
+            color: #2ecc71;
+            font-weight: bold;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
     <h1>Connecting your Instagram account...</h1>
     <div class="loader"></div>
     <p id="status-message" class="message">Processing your authorization...</p>
+    <div id="success-container"></div>
     <div id="error-container"></div>
     <div id="button-container"></div>
+    <div id="debug-container" class="debug-info" style="display: none;"></div>
 
     <script>
+        // Debug helper function
+        function logDebug(message, data) {
+            console.log(message, data);
+            
+            const debugContainer = document.getElementById("debug-container");
+            const logEntry = document.createElement("div");
+            
+            if (typeof data === 'object') {
+                logEntry.textContent = `${message} ${JSON.stringify(data, null, 2)}`;
+            } else {
+                logEntry.textContent = `${message} ${data || ''}`;
+            }
+            
+            debugContainer.appendChild(logEntry);
+            debugContainer.appendChild(document.createElement("hr"));
+            debugContainer.style.display = "block";
+        }
+        
+        // Test storage accessibility
+        function testStorage() {
+            try {
+                // Test sessionStorage
+                sessionStorage.setItem('test', 'test');
+                const sessionTest = sessionStorage.getItem('test');
+                sessionStorage.removeItem('test');
+                
+                // Test localStorage
+                localStorage.setItem('test', 'test');
+                const localTest = localStorage.getItem('test');
+                localStorage.removeItem('test');
+                
+                logDebug("Storage test:", {
+                    sessionStorage: sessionTest === 'test' ? "Working" : "Failed",
+                    localStorage: localTest === 'test' ? "Working" : "Failed"
+                });
+                
+                return {
+                    sessionStorage: sessionTest === 'test',
+                    localStorage: localTest === 'test'
+                };
+            } catch (error) {
+                logDebug("Storage test failed:", error.message);
+                return { sessionStorage: false, localStorage: false };
+            }
+        }
+        
+        // Function to safely store tokens
+        function safelyStoreTokens(accessToken, userId) {
+            let sessionStorageSuccess = false;
+            let localStorageSuccess = false;
+            
+            try {
+                // Store the token and user ID in sessionStorage
+                sessionStorage.setItem('instagram_access_token', accessToken);
+                sessionStorage.setItem('instagram_user_id', userId);
+                sessionStorageSuccess = true;
+                logDebug("Session storage success:", "Tokens stored");
+            } catch (sessionError) {
+                logDebug("Session storage error:", sessionError.message);
+            }
+            
+            try {
+                // Store in localStorage for persistence
+                localStorage.setItem('instagram_access_token', accessToken);
+                localStorage.setItem('instagram_user_id', userId);
+                localStorageSuccess = true;
+                logDebug("Local storage success:", "Tokens stored");
+            } catch (localError) {
+                logDebug("Local storage error:", localError.message);
+            }
+            
+            // Verify storage was successful
+            const sessionVerify = sessionStorage.getItem('instagram_access_token') === accessToken;
+            const localVerify = localStorage.getItem('instagram_access_token') === accessToken;
+            
+            logDebug("Storage verification:", {
+                sessionStorage: sessionVerify ? "Verified" : "Failed",
+                localStorage: localVerify ? "Verified" : "Failed"
+            });
+            
+            return sessionStorageSuccess || localStorageSuccess;
+        }
+        
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get("code");
+            const state = urlParams.get("state");
+            const error = urlParams.get("error");
+            
             const statusMessage = document.getElementById("status-message");
             const errorContainer = document.getElementById("error-container");
+            const successContainer = document.getElementById("success-container");
             const buttonContainer = document.getElementById("button-container");
             
-            if (code) {
-                statusMessage.textContent = "Exchanging authorization code for access token...";
-                
-                // Clear any existing tokens first to prevent issues
+            logDebug("URL Parameters:", { 
+                code: code ? "Present" : "Not found",
+                state: state || "Not found",
+                error: error || "Not found"
+            });
+            
+            // Test storage capability early
+            const storageStatus = testStorage();
+            
+            if (error) {
+                logDebug("OAuth Error:", error);
+                showError("Instagram authentication error: " + error);
+                addRetryButton();
+                return;
+            }
+            
+            if (!code) {
+                showError("No authorization code found in the URL.");
+                addRetryButton();
+                return;
+            }
+            
+            // Clear any existing tokens
+            try {
                 sessionStorage.removeItem('instagram_access_token');
                 sessionStorage.removeItem('instagram_user_id');
                 localStorage.removeItem('instagram_access_token');
                 localStorage.removeItem('instagram_user_id');
+                logDebug("Cleared existing tokens", "Success");
+            } catch (clearError) {
+                logDebug("Error clearing tokens:", clearError.message);
+            }
+            
+            // Check if storage is available
+            if (!storageStatus.sessionStorage && !storageStatus.localStorage) {
+                showError("Browser storage is not available. This may be due to private browsing mode, cookie restrictions, or storage quota limits.");
+                addRetryButton();
+                return;
+            }
+            
+            statusMessage.textContent = "Exchanging authorization code for access token...";
+            
+            // Send the code to backend for token exchange
+            fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ code: code })
+            })
+            .then(response => {
+                logDebug("Token exchange response status:", response.status);
                 
-                // Send the code to your backend to exchange for an access token
-                fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ code: code })
-                })
-                .then(response => {
-                    // Check if the response is ok
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! Status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("Token exchange response:", data);
+                // Check if the response is ok
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                logDebug("Token exchange response data:", {
+                    access_token: data.access_token ? "Present" : "Missing",
+                    user_id: data.user_id || "Missing"
+                });
+                
+                if (data.access_token && data.user_id) {
+                    // Try to store tokens safely
+                    const storageSuccess = safelyStoreTokens(data.access_token, data.user_id);
                     
-                    if (data.access_token) {
-                        // Store the token and user ID in sessionStorage
-                        sessionStorage.setItem('instagram_access_token', data.access_token);
-                        sessionStorage.setItem('instagram_user_id', data.user_id);
+                    if (storageSuccess) {
+                        // Show success message
+                        showSuccess("Successfully connected to Instagram!");
                         
-                        // Also store them in localStorage if you want them to persist
-                        localStorage.setItem('instagram_access_token', data.access_token);
-                        localStorage.setItem('instagram_user_id', data.user_id);
-                        
-                        // Optional: Store in your backend for future use
+                        // Store token in backend
                         storeTokenInBackend(data.access_token, data.user_id);
-                        
-                        statusMessage.textContent = "Successfully connected! Redirecting to dashboard...";
                         
                         // Get base URL for proper redirect
                         const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
                         
-                        // Redirect back to the main dashboard with a success parameter
+                        // Show redirect countdown
+                        statusMessage.textContent = "Redirecting to dashboard in 3 seconds...";
+                        
+                        // Redirect with delay
                         setTimeout(() => {
                             window.location.href = baseUrl + "/index.html?login_success=true";
-                        }, 1500);
+                        }, 3000);
                     } else {
-                        showError("Failed to connect Instagram account: " + (data.error || "Unknown error"));
+                        showError("Failed to save authentication data to browser storage. Please check your privacy settings and try again.");
                         addRetryButton();
+                        
+                        // Add manual copy option
+                        addManualCopyOption(data.access_token, data.user_id);
                     }
-                })
-                .catch(error => {
-                    console.error("Error:", error);
-                    showError("Error connecting to Instagram: " + error.message);
+                } else {
+                    showError("Invalid response from authentication server: " + 
+                        (data.error_message || data.error || "Missing access token"));
                     addRetryButton();
-                });
-            } else {
-                showError("No authorization code found in the URL.");
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                logDebug("Fetch error:", error.message);
+                showError("Error connecting to Instagram: " + error.message);
                 addRetryButton();
-            }
+            });
         };
+        
+        // Function to display success messages
+        function showSuccess(message) {
+            const successContainer = document.getElementById("success-container");
+            const loader = document.querySelector(".loader");
+            
+            // Hide the loader
+            loader.style.display = "none";
+            
+            // Show success message
+            const successMessage = document.createElement("p");
+            successMessage.className = "success-message";
+            successMessage.textContent = message;
+            successContainer.appendChild(successMessage);
+        }
         
         // Function to display error messages
         function showError(message) {
@@ -158,8 +321,38 @@
             buttonContainer.appendChild(retryButton);
         }
         
+        // Function for manual token copy as a last resort
+        function addManualCopyOption(token, userId) {
+            const debugContainer = document.getElementById("debug-container");
+            const manualSection = document.createElement("div");
+            manualSection.style.marginTop = "20px";
+            manualSection.innerHTML = `
+                <h3>Manual Authentication (Advanced)</h3>
+                <p>Copy these values and store them manually:</p>
+                <div>
+                    <strong>Access Token:</strong> 
+                    <input type="text" value="${token}" style="width:100%" readonly onClick="this.select();">
+                </div>
+                <div style="margin-top:10px">
+                    <strong>User ID:</strong> 
+                    <input type="text" value="${userId}" style="width:100%" readonly onClick="this.select();">
+                </div>
+                <p>Open your browser console (F12) and run these commands:</p>
+                <pre>
+localStorage.setItem('instagram_access_token', '${token}');
+localStorage.setItem('instagram_user_id', '${userId}');
+sessionStorage.setItem('instagram_access_token', '${token}');
+sessionStorage.setItem('instagram_user_id', '${userId}');
+                </pre>
+            `;
+            debugContainer.appendChild(manualSection);
+            debugContainer.style.display = "block";
+        }
+        
         // Function to store token in backend
         function storeTokenInBackend(token, userId) {
+            logDebug("Storing token in backend for user:", userId);
+            
             fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/store-token", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -168,13 +361,15 @@
                     user_id: userId
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                logDebug("Backend storage response status:", response.status);
+                return response.json();
+            })
             .then(data => {
-                console.log('Token storage result:', data);
+                logDebug('Token storage result:', data);
             })
             .catch(error => {
-                console.error("Error storing token:", error);
-                // Continue with redirect anyway as this is a secondary operation
+                logDebug("Error storing token in backend:", error.message);
             });
         }
     </script>
