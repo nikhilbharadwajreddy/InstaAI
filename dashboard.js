@@ -1202,3 +1202,281 @@ function maskToken(token) {
 
 // Force the login button to be visible on window load
 window.addEventListener('load', forceShowLoginButton);
+
+
+
+// Replace the existing fetchInstagramData function with this updated version
+function fetchInstagramData() {
+    showLoadingState();
+    
+    // Check if we have an access token
+    if (!accessToken || !instagramUserId) {
+        showNotification('Please login with Instagram first', 'error');
+        return;
+    }
+    
+    // Use the real Instagram API instead of sample data
+    fetchInstagramMessages();
+    fetchInstagramComments();
+    
+    // Update dashboard stats and UI
+    setTimeout(() => {
+        updateDashboardStats();
+        updateActivityFeed();
+        document.getElementById('last-updated-time').textContent = new Date().toLocaleTimeString();
+    }, 1000);
+}
+
+// New function to fetch real messages from Instagram
+function fetchInstagramMessages() {
+    // Call the getMessages Lambda function
+    fetch(`${API_ENDPOINTS.getMessages}?user_id=${instagramUserId}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Error fetching messages:', data.error);
+            showNotification('Error loading messages', 'error');
+            return;
+        }
+        
+        // Process messages from Instagram API
+        console.log('Messages data:', data);
+        
+        // Transform the data into our message format
+        const instaMessages = [];
+        
+        if (data.data && data.data.length > 0) {
+            data.data.forEach(conversation => {
+                if (conversation.messages && conversation.messages.data) {
+                    const conversationId = conversation.id;
+                    const participants = conversation.participants;
+                    
+                    // Find the other participant (not the user)
+                    let participant = null;
+                    if (participants && participants.data && participants.data.length > 0) {
+                        participant = participants.data.find(p => p.id !== instagramUserId);
+                    }
+                    
+                    if (participant) {
+                        // Process each message in the conversation
+                        conversation.messages.data.forEach(msg => {
+                            instaMessages.push({
+                                id: msg.id,
+                                userId: participant.id,
+                                username: participant.username || 'Instagram User',
+                                profileImg: participant.profile_pic_url || 'https://via.placeholder.com/40',
+                                type: msg.from.id === instagramUserId ? 'sent' : 'received',
+                                message: msg.message,
+                                timestamp: new Date(msg.created_time),
+                                read: true, // Assume read for simplicity
+                                automated: false
+                            });
+                        });
+                    }
+                }
+            });
+        }
+        
+        // If we successfully got messages, update the UI
+        if (instaMessages.length > 0) {
+            messages = instaMessages;
+            populateConversations(messages);
+        } else {
+            // If no messages, fall back to sample data for demonstration
+            console.log('No real messages found, using sample data');
+            messages = getSampleMessages();
+            populateConversations(messages);
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching Instagram messages:', error);
+        showNotification('Unable to load messages, using sample data', 'error');
+        
+        // Fall back to sample data
+        messages = getSampleMessages();
+        populateConversations(messages);
+    });
+}
+
+// Update the sendInstagramMessage function to use the real API
+function sendInstagramMessage(recipientId, messageText) {
+    if (!accessToken || !instagramUserId) {
+        showNotification('Please login with Instagram first', 'error');
+        return;
+    }
+    
+    // Show a sending indicator
+    showNotification('Sending message...', 'info');
+    
+    // Call the sendMessage Lambda function
+    fetch(API_ENDPOINTS.sendMessage, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            user_id: instagramUserId,
+            recipient_id: recipientId,
+            message: messageText
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Error sending message:', data.error);
+            showNotification('Error sending message', 'error');
+            return;
+        }
+        
+        console.log('Message sent successfully:', data);
+        showNotification('Message sent successfully!');
+        
+        // Add the message to the UI
+        addMessageToConversation('user', messageText, new Date());
+    })
+    .catch(error => {
+        console.error('Error sending Instagram message:', error);
+        showNotification('Failed to send message', 'error');
+    });
+}
+
+// Improve the storeTokenInBackend function
+function storeTokenInBackend(token, userId) {
+    fetch(API_ENDPOINTS.storeToken, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            access_token: token,
+            user_id: userId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error("Error storing token:", data.error);
+            return;
+        }
+        console.log('Token stored successfully:', data);
+    })
+    .catch(error => {
+        console.error("Error storing token:", error);
+    });
+}
+
+// Additional function to handle sending messages on Enter key press
+function handleMessageInputKeypress(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        const sendButton = document.getElementById('send-message');
+        if (sendButton && !sendButton.disabled) {
+            sendButton.click();
+        }
+    }
+}
+
+// Add this function to setup event listeners
+function setupMessageInputListeners() {
+    const messageInput = document.getElementById('message-input');
+    if (messageInput) {
+        messageInput.addEventListener('keypress', handleMessageInputKeypress);
+    }
+}
+
+// Extend the checkLoginStatus function to verify token validity
+function checkLoginStatus() {
+    // Try session storage first (current session)
+    let storedToken = sessionStorage.getItem('instagram_access_token');
+    let storedUserId = sessionStorage.getItem('instagram_user_id');
+    
+    // If not in session storage, try local storage (persisted)
+    if (!storedToken || !storedUserId) {
+        storedToken = localStorage.getItem('instagram_access_token');
+        storedUserId = localStorage.getItem('instagram_user_id');
+        
+        // If found in localStorage, also set in sessionStorage for this session
+        if (storedToken && storedUserId) {
+            sessionStorage.setItem('instagram_access_token', storedToken);
+            sessionStorage.setItem('instagram_user_id', storedUserId);
+        }
+    }
+    
+    if (storedToken && storedUserId) {
+        accessToken = storedToken;
+        instagramUserId = storedUserId;
+        
+        // Verify the token is still valid by making a test API call
+        verifyTokenValidity(storedToken, storedUserId);
+        
+        return true;
+    } else {
+        // Make sure login button is visible if no token is found
+        forceShowLoginButton();
+        return false;
+    }
+}
+
+// New function to verify token validity
+function verifyTokenValidity(token, userId) {
+    // Make a simple API call to verify token validity
+    fetch(`https://graph.facebook.com/v18.0/${userId}?fields=id,username&access_token=${token}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error('Token validation failed:', data.error);
+                // Token is invalid, clear it and show login
+                logoutUser();
+                showNotification('Your session has expired. Please login again.', 'error');
+            } else {
+                // Token is valid, update UI
+                updateUIForLoggedInUser();
+                fetchInstagramData();
+            }
+        })
+        .catch(error => {
+            console.error('Error validating token:', error);
+            // On error, assume token is invalid
+            logoutUser();
+            showNotification('Connection error. Please login again.', 'error');
+        });
+}
+
+// Enhancement to show different types of notifications
+function showNotification(message, type = 'success') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
+    // Choose icon based on type
+    let icon = 'fa-check-circle';
+    if (type === 'error') icon = 'fa-exclamation-circle';
+    if (type === 'info') icon = 'fa-info-circle';
+    if (type === 'warning') icon = 'fa-exclamation-triangle';
+    
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas ${icon}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    // Add to body
+    document.body.appendChild(notification);
+    
+    // Show notification
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 10);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
