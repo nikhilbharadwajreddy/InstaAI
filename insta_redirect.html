@@ -27,18 +27,40 @@
         .message {
             margin-top: 20px;
         }
+        button {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin-top: 20px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .error-message {
+            color: #e74c3c;
+            font-weight: bold;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
     <h1>Connecting your Instagram account...</h1>
     <div class="loader"></div>
     <p id="status-message" class="message">Processing your authorization...</p>
+    <div id="error-container"></div>
+    <div id="button-container"></div>
 
     <script>
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get("code");
             const statusMessage = document.getElementById("status-message");
+            const errorContainer = document.getElementById("error-container");
+            const buttonContainer = document.getElementById("button-container");
             
             if (code) {
                 statusMessage.textContent = "Exchanging authorization code for access token...";
@@ -87,50 +109,56 @@
                             window.location.href = baseUrl + "/index.html?login_success=true";
                         }, 1500);
                     } else {
-                        statusMessage.textContent = "Error: Failed to connect Instagram account. " + 
-                                                    (data.error || "Please try again.");
-                        
-                        // Add a retry button
+                        showError("Failed to connect Instagram account: " + (data.error || "Unknown error"));
                         addRetryButton();
                     }
                 })
                 .catch(error => {
                     console.error("Error:", error);
-                    statusMessage.textContent = "Error connecting to Instagram: " + error.message;
-                    
-                    // Add a retry button
+                    showError("Error connecting to Instagram: " + error.message);
                     addRetryButton();
                 });
             } else {
-                statusMessage.textContent = "No authorization code found. Please try connecting again.";
-                
-                // Add a retry button
+                showError("No authorization code found in the URL.");
                 addRetryButton();
             }
         };
         
+        // Function to display error messages
+        function showError(message) {
+            const statusMessage = document.getElementById("status-message");
+            const errorContainer = document.getElementById("error-container");
+            const loader = document.querySelector(".loader");
+            
+            // Hide the loader
+            loader.style.display = "none";
+            
+            // Update status message
+            statusMessage.textContent = "Connection failed";
+            
+            // Show error message
+            const errorMessage = document.createElement("p");
+            errorMessage.className = "error-message";
+            errorMessage.textContent = message;
+            errorContainer.appendChild(errorMessage);
+        }
+        
         // Function to add a retry button
         function addRetryButton() {
-            const retryButton = document.createElement('button');
-            retryButton.textContent = "Try Again";
-            retryButton.style.padding = "10px 20px";
-            retryButton.style.backgroundColor = "#3498db";
-            retryButton.style.color = "white";
-            retryButton.style.border = "none";
-            retryButton.style.borderRadius = "5px";
-            retryButton.style.marginTop = "20px";
-            retryButton.style.cursor = "pointer";
+            const buttonContainer = document.getElementById("button-container");
             
-            retryButton.addEventListener('click', function() {
+            const retryButton = document.createElement("button");
+            retryButton.textContent = "Try Again";
+            retryButton.addEventListener("click", function() {
                 // Get base URL for proper redirect
                 const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
                 window.location.href = baseUrl + "/index.html";
             });
             
-            document.body.appendChild(retryButton);
+            buttonContainer.appendChild(retryButton);
         }
         
-        // Optional: Store token in backend
+        // Function to store token in backend
         function storeTokenInBackend(token, userId) {
             fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/store-token", {
                 method: "POST",
