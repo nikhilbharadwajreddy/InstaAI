@@ -2,7 +2,7 @@ document.getElementById("loginBtn").addEventListener("click", function() {
     window.location.href =
     "https://www.instagram.com/oauth/authorize" +
     "?client_id=2388890974807228" +
-    "&redirect_uri=https://nikhilbharadwajreddy.github.io/insta_redirect.html" +
+    "&redirect_uri=https://nikhilbharadwajreddy.github.io/InstaAI/insta_redirect.html" +
     "&response_type=code" +
     "&scope=instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights,pages_show_list,pages_read_engagement,business_management";
 });
