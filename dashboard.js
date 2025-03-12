@@ -13,6 +13,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Check if coming from successful login redirect
     checkLoginSuccess();
+    
+    // Add connection recovery mechanism
+    setupConnectionRecovery();
 });
 
 // Global variables
@@ -997,6 +1000,29 @@ function showModal(modalId) {
     }
 }
 
+// Add a connection recovery mechanism to restore connection if lost
+function setupConnectionRecovery() {
+    // Check connection status every 30 seconds
+    setInterval(() => {
+        const storedToken = sessionStorage.getItem('instagram_access_token');
+        const storedUserId = sessionStorage.getItem('instagram_user_id');
+        
+        if (storedToken && storedUserId) {
+            // If we have tokens but UI shows disconnected
+            const accountStatus = document.getElementById('account-status');
+            if (accountStatus && accountStatus.textContent !== 'Online') {
+                console.log("Recovery: Found valid tokens but UI shows disconnected");
+                
+                // Restore connection
+                accessToken = storedToken;
+                instagramUserId = storedUserId;
+                updateUIForLoggedInUser();
+                
+                showNotification('Connection restored automatically', 'success');
+            }
+        }
+    }, 30000); // Check every 30 seconds
+}
 // Helper function to format timestamps
 function formatTimestamp(timestamp) {
     const date = new Date(timestamp);
@@ -1824,24 +1850,35 @@ function sendInstagramMessage(recipientId, messageText) {
 
 // Improve the storeTokenInBackend function
 function storeTokenInBackend(token, userId) {
+    console.log("Storing token in backend for user:", userId);
+    
+    // Ensure userId is a string
+    const userIdStr = String(userId);
+    
     fetch(API_ENDPOINTS.storeToken, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
             access_token: token,
-            user_id: userId
+            user_id: userIdStr  // Send as string
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log("Backend storage response status:", response.status);
+        return response.json();
+    })
     .then(data => {
+        console.log("Token storage result:", data);
         if (data.error) {
             console.error("Error storing token:", data.error);
-            return;
+            // Don't log out - connection can still work with local storage
+        } else {
+            console.log('Token stored successfully in backend:', data);
         }
-        console.log('Token stored successfully:', data);
     })
     .catch(error => {
-        console.error("Error storing token:", error);
+        console.error("Error storing token in backend:", error);
+        // Don't log out - connection can still work with local storage
     });
 }
 
@@ -1871,48 +1908,48 @@ function setupMessageInputListeners() {
 function verifyTokenValidity(token, userId) {
     console.log("Verifying token validity for user:", userId);
     
-    // Make a simple API call to verify token validity
-    fetch(`https://graph.facebook.com/v18.0/${userId}?fields=id,username&access_token=${token}`)
-        .then(response => {
-            console.log("Token validation response status:", response.status);
-            return response.json();
-        })
-        .then(data => {
-            console.log("Token validation response data:", data);
-            
-            if (data.error) {
-                // Only log out user for permanent errors, not temporary ones
-                if (data.error.code === 190) {
-                    // Error code 190 is "Invalid OAuth access token"
-                    console.error('Token is invalid, logging out user:', data.error);
-                    logoutUser();
-                    showNotification('Your session has expired. Please login again.', 'error');
-                } else if ([4, 17, 341].includes(data.error.code)) {
-                    // Rate limiting or temporary errors, don't log out
-                    console.warn('Temporary API error, but keeping session:', data.error);
-                    showNotification('Instagram API temporarily unavailable. Some features may be limited.', 'warning');
-                    // Still update UI as if logged in
-                    updateUIForLoggedInUser();
+    // Add a delay before validation to ensure Instagram has processed the token
+    setTimeout(() => {
+        // Ensure userId is a string when making the request
+        const userIdStr = String(userId);
+        
+        // Make the API call to verify token
+        fetch(`https://graph.facebook.com/v18.0/${userIdStr}?fields=id,username&access_token=${token}`)
+            .then(response => {
+                console.log("Token validation status:", response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log("Token validation response:", data);
+                
+                if (data.error) {
+                    // Only log out for very specific permanent errors
+                    if (data.error.code === 190 && 
+                        (data.error.error_subcode === 463 || data.error.error_subcode === 467)) {
+                        // Only logout for permanently invalid tokens that can't be refreshed
+                        console.error('Token is permanently invalid:', data.error);
+                        logoutUser();
+                        showNotification('Your session has expired. Please login again.', 'error');
+                    } else {
+                        // For ALL other errors, keep session active
+                        console.warn('API returned error but keeping session:', data.error);
+                        showNotification('Minor connection issue, but session maintained', 'warning');
+                        updateUIForLoggedInUser();
+                    }
                 } else {
-                    // For other errors, just warn but keep the session
-                    console.warn('API error but continuing session:', data.error);
+                    // Token is valid
+                    console.log('Token is valid, user is authenticated');
                     updateUIForLoggedInUser();
+                    fetchInstagramData();
                 }
-            } else {
-                // Token is valid, update UI
-                console.log('Token is valid, user is authenticated');
+            })
+            .catch(error => {
+                // On network error, don't log out
+                console.error('Network error during validation:', error);
+                showNotification('Connection issue detected, but session maintained', 'warning');
                 updateUIForLoggedInUser();
-                fetchInstagramData();
-            }
-        })
-        .catch(error => {
-            // On network error, don't log out - just use the token we have
-            console.error('Network error during token validation:', error);
-            showNotification('Connection issue, but continuing with stored credentials', 'warning');
-            
-            // Still update UI as logged in
-            updateUIForLoggedInUser();
-        });
+            });
+    }, 2000); // Add a 2-second delay before validation
 }
 
 // Improved checkLoginStatus function to be more conservative
@@ -1945,10 +1982,10 @@ function checkLoginStatus() {
         // Update UI immediately without waiting for validation
         updateUIForLoggedInUser();
         
-        // Then verify token asynchronously
+        // IMPORTANT: Use a longer delay for verification
         setTimeout(() => {
             verifyTokenValidity(storedToken, storedUserId);
-        }, 500);
+        }, 3000); // Increased to 3 seconds from 500ms
         
         return true;
     } else {
@@ -1958,6 +1995,8 @@ function checkLoginStatus() {
         return false;
     }
 }
+
+
 
 // Enhancement to show different types of notifications
 function showNotification(message, type = 'success') {
