@@ -1599,7 +1599,7 @@ function exchangeCodeForToken(code, state) {
 
 // Improved storeTokenInBackend function
 function storeTokenInBackend(token, userId) {
-    console.log("Storing token for user:", userId);
+    console.log("Storing token in backend for user:", userId);
     
     fetch(API_ENDPOINTS.storeToken, {
         method: "POST",
@@ -1610,21 +1610,21 @@ function storeTokenInBackend(token, userId) {
         })
     })
     .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
+        console.log("Backend storage response status:", response.status);
         return response.json();
     })
     .then(data => {
+        console.log("Token storage result:", data);
         if (data.error) {
-            console.error("Backend returned error while storing token:", data.error);
-            return;
+            console.error("Error storing token:", data.error);
+            // Don't log out - connection can still work with local storage
+        } else {
+            console.log('Token stored successfully in backend:', data);
         }
-        console.log('Token stored successfully in backend:', data);
     })
     .catch(error => {
         console.error("Error storing token in backend:", error);
-        // Don't show notification to user as this is a background operation
+        // Don't log out - connection can still work with local storage
     });
 }
 
