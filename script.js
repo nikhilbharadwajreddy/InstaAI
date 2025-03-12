@@ -4,14 +4,15 @@ document.addEventListener("DOMContentLoaded", function() {
         loginBtn.addEventListener("click", function() {
             const clientId = "2388890974807228";
             const redirectUri = encodeURIComponent("https://nikhilbharadwajreddy.github.io/InstaAI/insta_redirect.html");
-            // Updated scopes (removed 'instagram_business_' prefix)
-            const scope = encodeURIComponent("instagram_basic,instagram_manage_messages,instagram_manage_comments,instagram_content_publish,instagram_manage_insights");
+            // Use the exact scopes as given by Meta (with the "instagram_business_" prefix)
+            const scope = encodeURIComponent("instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments,instagram_business_content_publish,instagram_business_manage_insights");
             
             const oauthUrl = `https://www.instagram.com/oauth/authorize?enable_fb_login=0&force_authentication=1&client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
             window.location.href = oauthUrl;
         });
     }
 });
+
 
 
 
