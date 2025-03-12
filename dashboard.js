@@ -251,80 +251,7 @@ function forceShowLoginButton() {
     }
 }
 
-// Check if we came from a successful login
-function checkLoginSuccess() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const loginSuccess = urlParams.get("login_success");
-    
-    if (loginSuccess === "true") {
-        // Remove the parameter from URL to prevent issues on refresh
-        const url = new URL(window.location);
-        url.searchParams.delete("login_success");
-        window.history.replaceState({}, document.title, url);
-        
-        // Show success notification
-        showNotification('Successfully connected to Instagram!', 'success');
-        
-        // Make sure UI is updated
-        checkLoginStatus();
-    }
-}
 
-// Exchange OAuth code for access token
-function exchangeCodeForToken(code) {
-    fetch(API_ENDPOINTS.exchangeToken, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.access_token) {
-            accessToken = data.access_token;
-            instagramUserId = data.user_id;
-            
-            // Store token in session
-            sessionStorage.setItem('instagram_access_token', accessToken);
-            sessionStorage.setItem('instagram_user_id', instagramUserId);
-            
-            // Store token in backend for future use
-            storeTokenInBackend(accessToken, instagramUserId);
-            
-            // Update UI
-            updateUIForLoggedInUser();
-            
-            // Fetch user data
-            fetchInstagramData();
-            
-            showNotification('Successfully connected to Instagram!');
-        } else {
-            showNotification('Failed to connect to Instagram', 'error');
-        }
-    })
-    .catch(error => {
-        console.error("Error exchanging code for token:", error);
-        showNotification('Error connecting to Instagram', 'error');
-    });
-}
-
-// Store access token in backend
-function storeTokenInBackend(token, userId) {
-    fetch(API_ENDPOINTS.storeToken, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            access_token: token,
-            user_id: userId
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log('Token stored successfully:', data);
-    })
-    .catch(error => {
-        console.error("Error storing token:", error);
-    });
-}
 
 // Update UI elements for logged in user
 function updateUIForLoggedInUser() {
@@ -900,16 +827,40 @@ function getTemplates() {
 }
 
 // Show notification
-function showNotification(message, type = 'success') {
+// Enhanced notification function with more types and options
+function showNotification(message, type = 'success', duration = 3000) {
     // Create notification element
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
+    
+    // Choose icon based on type
+    let icon = 'fa-check-circle';
+    if (type === 'error') icon = 'fa-exclamation-circle';
+    if (type === 'info') icon = 'fa-info-circle';
+    if (type === 'warning') icon = 'fa-exclamation-triangle';
+    
     notification.innerHTML = `
         <div class="notification-content">
-            <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+            <i class="fas ${icon}"></i>
             <span>${message}</span>
         </div>
     `;
+    
+    // Add close button for longer notifications
+    if (duration > 3000) {
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'notification-close';
+        closeBtn.innerHTML = '&times;';
+        closeBtn.addEventListener('click', () => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        });
+        notification.querySelector('.notification-content').appendChild(closeBtn);
+    }
     
     // Add to body
     document.body.appendChild(notification);
@@ -919,13 +870,123 @@ function showNotification(message, type = 'success') {
         notification.classList.add('show');
     }, 10);
     
-    // Remove after 3 seconds
-    setTimeout(() => {
-        notification.classList.remove('show');
+    // Remove after specified duration (unless it has a close button)
+    if (duration !== Infinity) {
         setTimeout(() => {
-            document.body.removeChild(notification);
-        }, 300);
-    }, 3000);
+            notification.classList.remove('show');
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 300);
+        }, duration);
+    }
+    
+    // Return the notification element in case we want to manipulate it later
+    return notification;
+}
+
+// Add styles for the improved notifications
+const enhancedNotificationStyles = document.createElement('style');
+enhancedNotificationStyles.textContent = `
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: white;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        border-radius: 5px;
+        padding: 15px;
+        transform: translateX(120%);
+        transition: transform 0.3s ease;
+        z-index: 1000;
+        max-width: 300px;
+        word-wrap: break-word;
+    }
+    
+    .notification.show {
+        transform: translateX(0);
+    }
+    
+    .notification-content {
+        display: flex;
+        align-items: flex-start;
+    }
+    
+    .notification.success i {
+        color: #2ecc71;
+    }
+    
+    .notification.error i {
+        color: #e74c3c;
+    }
+    
+    .notification.warning i {
+        color: #f39c12;
+    }
+    
+    .notification.info i {
+        color: #3498db;
+    }
+    
+    .notification i {
+        margin-right: 10px;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+    
+    .notification-close {
+        background: none;
+        border: none;
+        color: #777;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+        padding: 0 5px;
+    }
+    
+    .notification-close:hover {
+        color: #333;
+    }
+    
+    /* Show multiple notifications stacked */
+    .notification:nth-child(2) {
+        top: 80px;
+    }
+    
+    .notification:nth-child(3) {
+        top: 140px;
+    }
+`;
+document.head.appendChild(enhancedNotificationStyles);
+
+// Function to show a connection status notification that stays visible
+function showConnectionStatus(status) {
+    // Remove any existing connection status notification
+    const existingStatus = document.querySelector('.connection-status-notification');
+    if (existingStatus) {
+        existingStatus.parentNode.removeChild(existingStatus);
+    }
+    
+    // Show appropriate status message
+    switch(status) {
+        case 'connected':
+            showNotification('Connected to Instagram successfully!', 'success');
+            break;
+        case 'connecting':
+            const notification = showNotification('Connecting to Instagram...', 'info', Infinity);
+            notification.classList.add('connection-status-notification');
+            return notification;
+        case 'disconnected':
+            showNotification('Disconnected from Instagram', 'info');
+            break;
+        case 'error':
+            showNotification('Connection error! Try again later.', 'error', 6000);
+            break;
+        case 'partial':
+            showNotification('Connected with limited functionality', 'warning', 5000);
+            break;
+    }
 }
 
 // Show modal
@@ -1094,30 +1155,7 @@ document.head.appendChild(notificationStyles);
 
 // Debug function to check authentication status
 // Add a small debug button in the bottom right corner
-function addDebugButton() {
-    const debugButton = document.createElement('button');
-    debugButton.textContent = "Debug Auth";
-    debugButton.id = "debug-auth-button";
-    debugButton.style.position = "fixed";
-    debugButton.style.bottom = "10px";
-    debugButton.style.right = "10px";
-    debugButton.style.padding = "5px 10px";
-    debugButton.style.backgroundColor = "#f39c12";
-    debugButton.style.color = "white";
-    debugButton.style.border = "none";
-    debugButton.style.borderRadius = "5px";
-    debugButton.style.fontSize = "12px";
-    debugButton.style.cursor = "pointer";
-    debugButton.style.zIndex = "9999";
-    
-    debugButton.addEventListener('click', checkAuthDebug);
-    
-    document.body.appendChild(debugButton);
-}
-
-/**
- * Check authentication status and display debug information
- */
+// Improved debug overlay with connection diagnostics
 function checkAuthDebug() {
     // Create debug overlay
     const overlay = document.createElement('div');
@@ -1157,9 +1195,15 @@ function checkAuthDebug() {
         <pre>Login button visible: ${document.getElementById('loginBtn').style.display === 'none' ? 'No' : 'Yes'}</pre>
         <pre>Account status: ${document.getElementById('account-status').textContent}</pre>
         
-        <div style="margin-top: 20px;">
-            <button id="clear-auth-data" style="padding: 8px 16px; background-color: #e74c3c; color: white; border: none; border-radius: 4px; margin-right: 10px; cursor: pointer;">Clear Auth Data</button>
+        <h3>Connection Test:</h3>
+        <div id="connection-test-results">Click "Run Connection Test" to check connectivity</div>
+        
+        <div style="margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px;">
+            <button id="clear-auth-data" style="padding: 8px 16px; background-color: #e74c3c; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear Auth Data</button>
             <button id="force-login-button" style="padding: 8px 16px; background-color: #2ecc71; color: white; border: none; border-radius: 4px; cursor: pointer;">Fix Login Button</button>
+            <button id="run-connection-test" style="padding: 8px 16px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;">Run Connection Test</button>
+            <button id="retry-token-validation" style="padding: 8px 16px; background-color: #f39c12; color: white; border: none; border-radius: 4px; cursor: pointer;">Retry Token Validation</button>
+            <button id="save-diagnostics" style="padding: 8px 16px; background-color: #9b59b6; color: white; border: none; border-radius: 4px; cursor: pointer;">Save Diagnostics</button>
         </div>
     `;
     
@@ -1185,9 +1229,207 @@ function checkAuthDebug() {
         if (loginBtn) {
             loginBtn.style.display = 'block';
             alert('Login button is now visible.');
-            document.body.removeChild(overlay);
         }
     });
+    
+    document.getElementById('run-connection-test').addEventListener('click', function() {
+        runConnectionTest(sessionToken || localToken, sessionUserId || localUserId);
+    });
+    
+    document.getElementById('retry-token-validation').addEventListener('click', function() {
+        if (sessionToken && sessionUserId) {
+            verifyTokenValidity(sessionToken, sessionUserId);
+            alert('Token validation process started. Check console for details.');
+        } else {
+            alert('No token found to validate.');
+        }
+    });
+    
+    document.getElementById('save-diagnostics').addEventListener('click', function() {
+        saveDiagnosticData();
+    });
+}
+
+// Function to run connectivity tests
+function runConnectionTest(token, userId) {
+    const resultsDiv = document.getElementById('connection-test-results');
+    if (!resultsDiv) return;
+    
+    if (!token || !userId) {
+        resultsDiv.innerHTML = '<p style="color: #e74c3c;">❌ No credentials found to test</p>';
+        return;
+    }
+    
+    resultsDiv.innerHTML = '<p>Running tests... <span class="spinner"></span></p>';
+    
+    // Add a small spinner
+    const spinnerStyle = document.createElement('style');
+    spinnerStyle.textContent = `
+        .spinner {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(spinnerStyle);
+    
+    // Run tests
+    const tests = [
+        {
+            name: 'API Availability',
+            url: 'https://graph.facebook.com/v18.0/',
+            method: 'GET'
+        },
+        {
+            name: 'User Profile',
+            url: `https://graph.facebook.com/v18.0/${userId}?fields=id,username&access_token=${token}`,
+            method: 'GET'
+        }
+    ];
+    
+    const testResults = [];
+    let completedTests = 0;
+    
+    tests.forEach(test => {
+        fetch(test.url, { method: test.method })
+            .then(response => {
+                return response.json().then(data => {
+                    return { response, data };
+                });
+            })
+            .then(({ response, data }) => {
+                testResults.push({
+                    name: test.name,
+                    success: response.ok,
+                    status: response.status,
+                    statusText: response.statusText,
+                    data: data
+                });
+            })
+            .catch(error => {
+                testResults.push({
+                    name: test.name,
+                    success: false,
+                    error: error.message
+                });
+            })
+            .finally(() => {
+                completedTests++;
+                
+                if (completedTests === tests.length) {
+                    // All tests complete
+                    displayTestResults(testResults);
+                }
+            });
+    });
+    
+    function displayTestResults(results) {
+        let html = '<h4>Test Results:</h4>';
+        let overallSuccess = true;
+        
+        results.forEach(result => {
+            if (!result.success) overallSuccess = false;
+            
+            html += `
+                <div style="margin-bottom: 10px; padding: 8px; background-color: rgba(255,255,255,0.1); border-radius: 4px;">
+                    <p><strong>${result.name}:</strong> ${result.success ? '✅ Success' : '❌ Failed'}</p>
+                    ${result.status ? `<p>Status: ${result.status} ${result.statusText}</p>` : ''}
+                    ${result.error ? `<p>Error: ${result.error}</p>` : ''}
+                    ${result.data ? `<details>
+                        <summary>Response Data</summary>
+                        <pre style="max-height: 150px; overflow: auto;">${JSON.stringify(result.data, null, 2)}</pre>
+                    </details>` : ''}
+                </div>
+            `;
+        });
+        
+        html += `<p style="margin-top: 10px;"><strong>Overall: ${overallSuccess ? '✅ Connection OK' : '❌ Connection Issues'}</strong></p>`;
+        html += '<p>Last tested: ' + new Date().toLocaleTimeString() + '</p>';
+        
+        if (!overallSuccess) {
+            html += `
+                <div style="margin-top: 10px; padding: 10px; background-color: rgba(231, 76, 60, 0.2); border-radius: 4px;">
+                    <p><strong>Recommendation:</strong></p>
+                    <ul>
+                        <li>Try logging out and logging in again</li>
+                        <li>Check your internet connection</li>
+                        <li>Verify your Instagram Business account has proper permissions</li>
+                    </ul>
+                </div>
+            `;
+        }
+        
+        resultsDiv.innerHTML = html;
+    }
+}
+
+// Function to save diagnostic data
+function saveDiagnosticData() {
+    try {
+        const diagnosticData = {
+            timestamp: new Date().toISOString(),
+            browser: navigator.userAgent,
+            localStorage: {
+                access_token: localStorage.getItem('instagram_access_token') ? 'Present (masked)' : 'Not found',
+                user_id: localStorage.getItem('instagram_user_id')
+            },
+            sessionStorage: {
+                access_token: sessionStorage.getItem('instagram_access_token') ? 'Present (masked)' : 'Not found',
+                user_id: sessionStorage.getItem('instagram_user_id')
+            },
+            uiState: {
+                loginButtonVisible: document.getElementById('loginBtn').style.display === 'none' ? false : true,
+                accountStatus: document.getElementById('account-status').textContent,
+                connectionStatus: document.getElementById('connection-status').textContent
+            }
+        };
+        
+        // Create a blob and download it
+        const blob = new Blob([JSON.stringify(diagnosticData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `insta-ai-diagnostics-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        
+        URL.revokeObjectURL(url);
+        
+        alert('Diagnostic data saved successfully!');
+    } catch (error) {
+        console.error('Error saving diagnostic data:', error);
+        alert('Error saving diagnostic data: ' + error.message);
+    }
+}
+
+// Enhanced debug button
+function addDebugButton() {
+    const debugButton = document.createElement('button');
+    debugButton.textContent = "Debug Auth";
+    debugButton.id = "debug-auth-button";
+    debugButton.style.position = "fixed";
+    debugButton.style.bottom = "10px";
+    debugButton.style.right = "10px";
+    debugButton.style.padding = "5px 10px";
+    debugButton.style.backgroundColor = "#f39c12";
+    debugButton.style.color = "white";
+    debugButton.style.border = "none";
+    debugButton.style.borderRadius = "5px";
+    debugButton.style.fontSize = "12px";
+    debugButton.style.cursor = "pointer";
+    debugButton.style.zIndex = "9999";
+    
+    debugButton.addEventListener('click', checkAuthDebug);
+    
+    document.body.appendChild(debugButton);
 }
 
 /**
@@ -1201,105 +1443,340 @@ function maskToken(token) {
 }
 
 // Force the login button to be visible on window load
-window.addEventListener('load', forceShowLoginButton);
+
+// Improved loginWithInstagram function
+function loginWithInstagram() {
+    // Show connecting notification
+    const connectingNotification = showConnectionStatus('connecting');
+    
+    // Define the OAuth URL with all required permissions
+    const oauthUrl = "https://www.instagram.com/oauth/authorize" + 
+        "?client_id=2388890974807228" +
+        "&redirect_uri=https://nikhilbharadwajreddy.github.io/InstaAI/insta_redirect.html" +
+        "&scope=instagram_business_basic,instagram_business_manage_messages," +
+        "instagram_business_manage_comments,instagram_business_content_publish," +
+        "instagram_business_manage_insights" +
+        "&response_type=code" +
+        "&state=" + generateStateParam();
+    
+    // Store the current timestamp for OAuth initiation
+    localStorage.setItem('oauth_initiated', Date.now());
+    
+    // Open in a new window if mobile, otherwise redirect
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+        window.location.href = oauthUrl;
+    } else {
+        // Try to use a popup on desktop
+        const authWindow = window.open(oauthUrl, '_blank', 'width=600,height=700');
+        
+        // Check if popup was blocked and redirect instead
+        if (!authWindow || authWindow.closed || typeof authWindow.closed === 'undefined') {
+            console.log("Popup blocked, redirecting instead");
+            window.location.href = oauthUrl;
+        }
+    }
+}
+
+// Function to generate a state parameter for OAuth security
+function generateStateParam() {
+    const randomStr = Math.random().toString(36).substring(2, 15);
+    const timestamp = Date.now().toString(36);
+    const state = `${randomStr}_${timestamp}`;
+    
+    // Store in sessionStorage to verify later
+    sessionStorage.setItem('oauth_state', state);
+    
+    return state;
+}
+
+// Improved checkLoginSuccess function
+function checkLoginSuccess() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const loginSuccess = urlParams.get("login_success");
+    const error = urlParams.get("error");
+    const errorReason = urlParams.get("error_reason");
+    const errorDescription = urlParams.get("error_description");
+    
+    // Handle OAuth errors
+    if (error) {
+        console.error("OAuth Error:", error, errorReason, errorDescription);
+        
+        // Clean URL
+        const url = new URL(window.location);
+        url.searchParams.delete("error");
+        url.searchParams.delete("error_reason");
+        url.searchParams.delete("error_description");
+        window.history.replaceState({}, document.title, url);
+        
+        // Show appropriate error message
+        if (errorReason === "user_denied") {
+            showNotification('Instagram access was denied. Please try again and approve the permissions.', 'error', 5000);
+        } else {
+            showNotification(`Authentication error: ${errorDescription || error}`, 'error', 5000);
+        }
+        
+        return;
+    }
+    
+    if (loginSuccess === "true") {
+        // Remove the parameter from URL to prevent issues on refresh
+        const url = new URL(window.location);
+        url.searchParams.delete("login_success");
+        window.history.replaceState({}, document.title, url);
+        
+        // Show success notification
+        showNotification('Successfully connected to Instagram!', 'success');
+        
+        // Make sure UI is updated
+        checkLoginStatus();
+    }
+}
+
+// Enhancing the exchangeCodeForToken function
+function exchangeCodeForToken(code, state) {
+    // Check state parameter for CSRF protection
+    const storedState = sessionStorage.getItem('oauth_state');
+    if (state && storedState && state !== storedState) {
+        console.error("State parameter mismatch - possible CSRF attack");
+        showNotification('Security error: Authentication request may have been tampered with.', 'error', 5000);
+        return;
+    }
+    
+    // Show loading indicator
+    const loadingNotification = showNotification('Authenticating with Instagram...', 'info', 10000);
+    
+    fetch(API_ENDPOINTS.exchangeToken, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Remove loading notification
+        if (loadingNotification.parentNode) {
+            loadingNotification.parentNode.removeChild(loadingNotification);
+        }
+        
+        if (data.access_token) {
+            accessToken = data.access_token;
+            instagramUserId = data.user_id;
+            
+            console.log("Authentication successful. User ID:", instagramUserId);
+            
+            // Store token in session and local storage
+            sessionStorage.setItem('instagram_access_token', accessToken);
+            sessionStorage.setItem('instagram_user_id', instagramUserId);
+            localStorage.setItem('instagram_access_token', accessToken);
+            localStorage.setItem('instagram_user_id', instagramUserId);
+            
+            // Store token in backend for future use
+            storeTokenInBackend(accessToken, instagramUserId);
+            
+            // Update UI
+            updateUIForLoggedInUser();
+            
+            // Fetch user data
+            fetchInstagramData();
+            
+            showNotification('Successfully connected to Instagram!');
+        } else {
+            console.error("Failed to get access token:", data.error || data);
+            showNotification('Failed to connect to Instagram: ' + (data.error_message || data.error || 'Unknown error'), 'error', 6000);
+        }
+    })
+    .catch(error => {
+        console.error("Error exchanging code for token:", error);
+        showNotification('Error connecting to Instagram: ' + error.message, 'error', 6000);
+    });
+}
+
+// Improved storeTokenInBackend function
+function storeTokenInBackend(token, userId) {
+    console.log("Storing token for user:", userId);
+    
+    fetch(API_ENDPOINTS.storeToken, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            access_token: token,
+            user_id: userId
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.error) {
+            console.error("Backend returned error while storing token:", data.error);
+            return;
+        }
+        console.log('Token stored successfully in backend:', data);
+    })
+    .catch(error => {
+        console.error("Error storing token in backend:", error);
+        // Don't show notification to user as this is a background operation
+    });
+}
+
+// Update the event listener for the login button
+document.addEventListener('DOMContentLoaded', function() {
+    const loginBtn = document.getElementById('loginBtn');
+    if (loginBtn) {
+        loginBtn.removeEventListener('click', function() {});
+        loginBtn.addEventListener('click', loginWithInstagram);
+    }
+});
+
 
 
 
 // Replace the existing fetchInstagramData function with this updated version
+// Enhanced fetchInstagramData function with better error handling
 function fetchInstagramData() {
     showLoadingState();
     
     // Check if we have an access token
     if (!accessToken || !instagramUserId) {
         showNotification('Please login with Instagram first', 'error');
+        resetDataContainers();
         return;
     }
     
-    // Use the real Instagram API instead of sample data
-    fetchInstagramMessages();
-    fetchInstagramComments();
+    // Use sample data as fallback if API calls fail
+    let usingSampleData = false;
     
-    // Update dashboard stats and UI
-    setTimeout(() => {
-        updateDashboardStats();
-        updateActivityFeed();
-        document.getElementById('last-updated-time').textContent = new Date().toLocaleTimeString();
-    }, 1000);
-}
-
-// New function to fetch real messages from Instagram
-function fetchInstagramMessages() {
-    // Call the getMessages Lambda function
-    fetch(`${API_ENDPOINTS.getMessages}?user_id=${instagramUserId}`, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            console.error('Error fetching messages:', data.error);
-            showNotification('Error loading messages', 'error');
-            return;
-        }
-        
-        // Process messages from Instagram API
-        console.log('Messages data:', data);
-        
-        // Transform the data into our message format
-        const instaMessages = [];
-        
-        if (data.data && data.data.length > 0) {
-            data.data.forEach(conversation => {
-                if (conversation.messages && conversation.messages.data) {
-                    const conversationId = conversation.id;
-                    const participants = conversation.participants;
-                    
-                    // Find the other participant (not the user)
-                    let participant = null;
-                    if (participants && participants.data && participants.data.length > 0) {
-                        participant = participants.data.find(p => p.id !== instagramUserId);
-                    }
-                    
-                    if (participant) {
-                        // Process each message in the conversation
-                        conversation.messages.data.forEach(msg => {
-                            instaMessages.push({
-                                id: msg.id,
-                                userId: participant.id,
-                                username: participant.username || 'Instagram User',
-                                profileImg: participant.profile_pic_url || 'https://via.placeholder.com/40',
-                                type: msg.from.id === instagramUserId ? 'sent' : 'received',
-                                message: msg.message,
-                                timestamp: new Date(msg.created_time),
-                                read: true, // Assume read for simplicity
-                                automated: false
-                            });
-                        });
-                    }
-                }
-            });
-        }
-        
-        // If we successfully got messages, update the UI
-        if (instaMessages.length > 0) {
-            messages = instaMessages;
-            populateConversations(messages);
-        } else {
-            // If no messages, fall back to sample data for demonstration
-            console.log('No real messages found, using sample data');
+    // Track API call status
+    const apiStatus = {
+        messages: false,
+        comments: false
+    };
+    
+    // Start API call for messages
+    fetchInstagramMessages()
+        .catch(error => {
+            console.error('Error fetching Instagram messages:', error);
+            showNotification('Unable to load messages, using sample data', 'warning');
+            
+            // Fall back to sample data
             messages = getSampleMessages();
             populateConversations(messages);
+            usingSampleData = true;
+        })
+        .finally(() => {
+            apiStatus.messages = true;
+            updateDashboardStats();
+            checkAllApiCallsComplete();
+        });
+    
+    // Comments API call would go here if implemented
+    setTimeout(() => {
+        comments = getSampleComments();
+        populateComments(comments);
+        apiStatus.comments = true;
+        checkAllApiCallsComplete();
+    }, 1000);
+    
+    // Function to check if all API calls are complete
+    function checkAllApiCallsComplete() {
+        if (apiStatus.messages && apiStatus.comments) {
+            // All calls complete, update UI
+            updateActivityFeed();
+            document.getElementById('last-updated-time').textContent = new Date().toLocaleTimeString();
+            
+            if (usingSampleData) {
+                // Add an indicator that some data is sample data
+                document.getElementById('last-updated-time').textContent += ' (sample data)';
+            }
         }
-    })
-    .catch(error => {
-        console.error('Error fetching Instagram messages:', error);
-        showNotification('Unable to load messages, using sample data', 'error');
+    }
+}
+
+// Convert fetchInstagramMessages to return a Promise for better error handling
+function fetchInstagramMessages() {
+    return new Promise((resolve, reject) => {
+        // Call the getMessages Lambda function
+        console.log("Fetching messages from API with user ID:", instagramUserId);
         
-        // Fall back to sample data
-        messages = getSampleMessages();
-        populateConversations(messages);
+        fetch(`${API_ENDPOINTS.getMessages}?user_id=${instagramUserId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                console.error('API returned error:', data.error);
+                reject(new Error(data.error.message || 'API error'));
+                return;
+            }
+            
+            console.log('Messages data received:', data);
+            
+            // Transform the data into our message format
+            const instaMessages = [];
+            
+            if (data.data && data.data.length > 0) {
+                data.data.forEach(conversation => {
+                    if (conversation.messages && conversation.messages.data) {
+                        const conversationId = conversation.id;
+                        const participants = conversation.participants;
+                        
+                        // Find the other participant (not the user)
+                        let participant = null;
+                        if (participants && participants.data && participants.data.length > 0) {
+                            participant = participants.data.find(p => p.id !== instagramUserId);
+                        }
+                        
+                        if (participant) {
+                            // Process each message in the conversation
+                            conversation.messages.data.forEach(msg => {
+                                instaMessages.push({
+                                    id: msg.id,
+                                    userId: participant.id,
+                                    username: participant.username || 'Instagram User',
+                                    profileImg: participant.profile_pic_url || 'https://via.placeholder.com/40',
+                                    type: msg.from.id === instagramUserId ? 'sent' : 'received',
+                                    message: msg.message,
+                                    timestamp: new Date(msg.created_time),
+                                    read: true, // Assume read for simplicity
+                                    automated: false
+                                });
+                            });
+                        }
+                    }
+                });
+            }
+            
+            // If we successfully got messages, update the UI
+            if (instaMessages.length > 0) {
+                messages = instaMessages;
+                populateConversations(messages);
+                resolve(messages);
+            } else {
+                console.log('No messages found in API response');
+                reject(new Error('No messages found'));
+            }
+        })
+        .catch(error => {
+            console.error('Error in fetchInstagramMessages:', error);
+            reject(error);
+        });
     });
 }
 
@@ -1387,8 +1864,61 @@ function setupMessageInputListeners() {
     }
 }
 
-// Extend the checkLoginStatus function to verify token validity
+
+
+// New function to verify token validity
+// Replace the existing verifyTokenValidity function with this more robust version
+function verifyTokenValidity(token, userId) {
+    console.log("Verifying token validity for user:", userId);
+    
+    // Make a simple API call to verify token validity
+    fetch(`https://graph.facebook.com/v18.0/${userId}?fields=id,username&access_token=${token}`)
+        .then(response => {
+            console.log("Token validation response status:", response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log("Token validation response data:", data);
+            
+            if (data.error) {
+                // Only log out user for permanent errors, not temporary ones
+                if (data.error.code === 190) {
+                    // Error code 190 is "Invalid OAuth access token"
+                    console.error('Token is invalid, logging out user:', data.error);
+                    logoutUser();
+                    showNotification('Your session has expired. Please login again.', 'error');
+                } else if ([4, 17, 341].includes(data.error.code)) {
+                    // Rate limiting or temporary errors, don't log out
+                    console.warn('Temporary API error, but keeping session:', data.error);
+                    showNotification('Instagram API temporarily unavailable. Some features may be limited.', 'warning');
+                    // Still update UI as if logged in
+                    updateUIForLoggedInUser();
+                } else {
+                    // For other errors, just warn but keep the session
+                    console.warn('API error but continuing session:', data.error);
+                    updateUIForLoggedInUser();
+                }
+            } else {
+                // Token is valid, update UI
+                console.log('Token is valid, user is authenticated');
+                updateUIForLoggedInUser();
+                fetchInstagramData();
+            }
+        })
+        .catch(error => {
+            // On network error, don't log out - just use the token we have
+            console.error('Network error during token validation:', error);
+            showNotification('Connection issue, but continuing with stored credentials', 'warning');
+            
+            // Still update UI as logged in
+            updateUIForLoggedInUser();
+        });
+}
+
+// Improved checkLoginStatus function to be more conservative
 function checkLoginStatus() {
+    console.log("Checking login status...");
+    
     // Try session storage first (current session)
     let storedToken = sessionStorage.getItem('instagram_access_token');
     let storedUserId = sessionStorage.getItem('instagram_user_id');
@@ -1406,43 +1936,27 @@ function checkLoginStatus() {
     }
     
     if (storedToken && storedUserId) {
+        console.log("Found stored credentials for user:", storedUserId);
+        
+        // Set global variables immediately
         accessToken = storedToken;
         instagramUserId = storedUserId;
         
-        // Verify the token is still valid by making a test API call
-        verifyTokenValidity(storedToken, storedUserId);
+        // Update UI immediately without waiting for validation
+        updateUIForLoggedInUser();
+        
+        // Then verify token asynchronously
+        setTimeout(() => {
+            verifyTokenValidity(storedToken, storedUserId);
+        }, 500);
         
         return true;
     } else {
+        console.log("No stored credentials found");
         // Make sure login button is visible if no token is found
         forceShowLoginButton();
         return false;
     }
-}
-
-// New function to verify token validity
-function verifyTokenValidity(token, userId) {
-    // Make a simple API call to verify token validity
-    fetch(`https://graph.facebook.com/v18.0/${userId}?fields=id,username&access_token=${token}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                console.error('Token validation failed:', data.error);
-                // Token is invalid, clear it and show login
-                logoutUser();
-                showNotification('Your session has expired. Please login again.', 'error');
-            } else {
-                // Token is valid, update UI
-                updateUIForLoggedInUser();
-                fetchInstagramData();
-            }
-        })
-        .catch(error => {
-            console.error('Error validating token:', error);
-            // On error, assume token is invalid
-            logoutUser();
-            showNotification('Connection error. Please login again.', 'error');
-        });
 }
 
 // Enhancement to show different types of notifications
