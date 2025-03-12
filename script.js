@@ -11,7 +11,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
 
 
-
 document.addEventListener("DOMContentLoaded", function () {
     // Ensure the button exists before adding event listener
     const webhookButton = document.getElementById("testWebhook");
