@@ -43,14 +43,28 @@
             if (code) {
                 statusMessage.textContent = "Exchanging authorization code for access token...";
                 
+                // Clear any existing tokens first to prevent issues
+                sessionStorage.removeItem('instagram_access_token');
+                sessionStorage.removeItem('instagram_user_id');
+                localStorage.removeItem('instagram_access_token');
+                localStorage.removeItem('instagram_user_id');
+                
                 // Send the code to your backend to exchange for an access token
                 fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ code: code })
                 })
-                .then(response => response.json())
+                .then(response => {
+                    // Check if the response is ok
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log("Token exchange response:", data);
+                    
                     if (data.access_token) {
                         // Store the token and user ID in sessionStorage
                         sessionStorage.setItem('instagram_access_token', data.access_token);
@@ -65,28 +79,56 @@
                         
                         statusMessage.textContent = "Successfully connected! Redirecting to dashboard...";
                         
-                        // Redirect back to the main dashboard
+                        // Get base URL for proper redirect
+                        const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
+                        
+                        // Redirect back to the main dashboard with a success parameter
                         setTimeout(() => {
-                            window.location.href = "/index.html";
+                            window.location.href = baseUrl + "/index.html?login_success=true";
                         }, 1500);
                     } else {
                         statusMessage.textContent = "Error: Failed to connect Instagram account. " + 
                                                     (data.error || "Please try again.");
+                        
+                        // Add a retry button
+                        addRetryButton();
                     }
                 })
                 .catch(error => {
                     console.error("Error:", error);
-                    statusMessage.textContent = "Error connecting to Instagram. Please try again.";
+                    statusMessage.textContent = "Error connecting to Instagram: " + error.message;
+                    
+                    // Add a retry button
+                    addRetryButton();
                 });
             } else {
                 statusMessage.textContent = "No authorization code found. Please try connecting again.";
                 
-                // Redirect back to the main page after a delay
-                setTimeout(() => {
-                    window.location.href = "/index.html";
-                }, 3000);
+                // Add a retry button
+                addRetryButton();
             }
         };
+        
+        // Function to add a retry button
+        function addRetryButton() {
+            const retryButton = document.createElement('button');
+            retryButton.textContent = "Try Again";
+            retryButton.style.padding = "10px 20px";
+            retryButton.style.backgroundColor = "#3498db";
+            retryButton.style.color = "white";
+            retryButton.style.border = "none";
+            retryButton.style.borderRadius = "5px";
+            retryButton.style.marginTop = "20px";
+            retryButton.style.cursor = "pointer";
+            
+            retryButton.addEventListener('click', function() {
+                // Get base URL for proper redirect
+                const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
+                window.location.href = baseUrl + "/index.html";
+            });
+            
+            document.body.appendChild(retryButton);
+        }
         
         // Optional: Store token in backend
         function storeTokenInBackend(token, userId) {

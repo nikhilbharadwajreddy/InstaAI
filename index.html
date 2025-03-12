@@ -395,6 +395,16 @@
             </div>
         </div>
     </div>
+    <script>
+        // Force show login button on page load
+        window.addEventListener('load', function() {
+          const loginBtn = document.getElementById('loginBtn');
+          if (loginBtn) {
+            loginBtn.style.display = 'block';
+            console.log("Login button forced visible");
+          }
+        });
+      </script>
     
     <script src="dashboard.js"></script>
 </body>
