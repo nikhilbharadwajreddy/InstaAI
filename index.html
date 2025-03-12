@@ -4,21 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Instagram DM Automation Dashboard</title>
-    <link rel="stylesheet" href="css/dashboard.css">
-    <link rel="stylesheet" href="css/components.css">
-    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/dashboard.css">
-    <link rel="stylesheet" href="css/components.css">
-    <link rel="stylesheet" href="css/animations.css">
-
 </head>
 <body>
     <div class="app-container">
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <img src="assets/images/logo.png" alt="Logo" class="logo">
+                <img src="https://via.placeholder.com/50" alt="Logo" class="logo">
                 <h2>Insta<span>AI</span></h2>
             </div>
             
@@ -327,7 +321,7 @@
                         <h3>Instagram Account</h3>
                         <div class="account-status-container">
                             <div id="connected-account">
-                                <p>Status: <span id="connection-status" class="status-indicator">Not Connected</span></p>
+                                <p>Status: <span id="connection-status">Not Connected</span></p>
                                 <p>Account: <span id="instagram-username">N/A</span></p>
                                 <p>Connected since: <span id="connected-since">N/A</span></p>
                             </div>
@@ -402,18 +396,6 @@
         </div>
     </div>
     
-    <!-- Import JavaScript modules -->
-    <script type="module" src="js/main.js"></script>
-    
-    <!-- Force login button visibility -->
-    <script>
-        window.addEventListener('load', function() {
-            const loginBtn = document.getElementById('loginBtn');
-            if (loginBtn) {
-                loginBtn.style.display = 'block';
-                console.log("Login button forced visible on page load");
-            }
-        });
-    </script>
+    <script src="dashboard.js"></script>
 </body>
 </html>
