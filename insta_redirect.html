@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -483,6 +483,215 @@ ${pageId ? `sessionStorage.setItem('instagram_page_id', '${pageId}');` : ''}
                 logDebug("Error storing token in backend:", error.message);
                 showWarning("Warning: Failed to verify token with backend. Connection may be limited.");
             });
+        }
+    </script>
+</body>
+</html> -->
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram OAuth Code - Testing Mode</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 30px;
+            background: #f7f7f7;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .code-display {
+            background-color: #edf7ff;
+            border: 2px solid #3498db;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+            word-break: break-all;
+            font-family: monospace;
+            position: relative;
+        }
+        .copy-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .copy-button:hover {
+            background: #2980b9;
+        }
+        h1 {
+            color: #333;
+        }
+        .instructions {
+            text-align: left;
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+        .instructions h2 {
+            color: #3498db;
+            margin-top: 0;
+        }
+        .instructions ol {
+            margin-left: 20px;
+            line-height: 1.5;
+        }
+        .button {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            margin: 10px 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .button:hover {
+            background-color: #2980b9;
+        }
+        .button.secondary {
+            background-color: #95a5a6;
+        }
+        .button.secondary:hover {
+            background-color: #7f8c8d;
+        }
+        .testing-banner {
+            background-color: #f39c12;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="testing-banner">TESTING MODE - Authorization Code Extractor</div>
+    
+    <h1>Instagram Authorization Code</h1>
+    
+    <div id="code-section">
+        <p>Your authorization code has been successfully retrieved.</p>
+        <div class="code-display" id="code-container">
+            <span id="auth-code">Loading...</span>
+            <button class="copy-button" onclick="copyCode()">Copy</button>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        <h2>How to Use This Code</h2>
+        <ol>
+            <li>Copy the authorization code above using the "Copy" button</li>
+            <li>In Postman, create a POST request to:</li>
+            <li><code>https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token</code></li>
+            <li>Set Content-Type header to <code>application/json</code></li>
+            <li>In the request body, send: <code>{"code": "PASTE_CODE_HERE"}</code></li>
+            <li>Send the request to exchange for an access token</li>
+            <li><strong>Note:</strong> This code can only be used once and expires quickly</li>
+        </ol>
+    </div>
+    
+    <div>
+        <button class="button" onclick="proceedWithExchange()">Proceed with Normal Flow</button>
+        <button class="button secondary" onclick="goToDashboard()">Go to Dashboard</button>
+    </div>
+    
+    <script>
+        // Extract code from URL
+        function getAuthCode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get("code") || "No code found in URL";
+        }
+        
+        // Display the code when page loads
+        window.onload = function() {
+            const code = getAuthCode();
+            document.getElementById("auth-code").textContent = code;
+        }
+        
+        // Copy code to clipboard
+        function copyCode() {
+            const code = getAuthCode();
+            navigator.clipboard.writeText(code)
+                .then(() => {
+                    alert("Code copied to clipboard!");
+                })
+                .catch(err => {
+                    console.error('Could not copy text: ', err);
+                    
+                    // Fallback copy method
+                    const codeElem = document.getElementById("auth-code");
+                    const range = document.createRange();
+                    range.selectNode(codeElem);
+                    window.getSelection().removeAllRanges();
+                    window.getSelection().addRange(range);
+                    document.execCommand("copy");
+                    window.getSelection().removeAllRanges();
+                    alert("Code copied to clipboard!");
+                });
+        }
+        
+        // Proceed with the normal token exchange flow
+        function proceedWithExchange() {
+            if (confirm("This will continue with the normal flow and exchange your code for a token. The code will no longer be usable for testing. Continue?")) {
+                const code = getAuthCode();
+                
+                // Show exchange in progress
+                document.getElementById("code-container").innerHTML = "<p>Exchanging code for token...</p>";
+                
+                // Call your token exchange endpoint
+                fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ code: code })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.access_token && data.user_id) {
+                        // Store token
+                        localStorage.setItem('instagram_access_token', data.access_token);
+                        localStorage.setItem('instagram_user_id', data.user_id);
+                        sessionStorage.setItem('instagram_access_token', data.access_token);
+                        sessionStorage.setItem('instagram_user_id', data.user_id);
+                        
+                        // Update UI
+                        document.getElementById("code-container").innerHTML = 
+                            "<p>Success! Token received and stored.</p>" + 
+                            "<p>Redirecting to dashboard...</p>";
+                        
+                        // Redirect to dashboard
+                        setTimeout(() => {
+                            const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
+                            window.location.href = baseUrl + "/index.html?login_success=true";
+                        }, 2000);
+                    } else {
+                        document.getElementById("code-container").innerHTML = 
+                            "<p style='color:red'>Error: " + (data.error || "Failed to get token") + "</p>";
+                    }
+                })
+                .catch(error => {
+                    document.getElementById("code-container").innerHTML = 
+                        "<p style='color:red'>Error: " + error.message + "</p>";
+                });
+            }
+        }
+        
+        // Go to dashboard without exchanging
+        function goToDashboard() {
+            const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
+            window.location.href = baseUrl + "/index.html";
         }
     </script>
 </body>
