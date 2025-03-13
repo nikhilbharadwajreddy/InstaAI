@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add connection recovery mechanism
     setupConnectionRecovery();
+    
+    // Add loading state protection
+    setupLoadingStateProtection();
 });
 
 // Global variables
@@ -56,6 +59,26 @@ function initializeUI() {
             document.getElementById(`${tabId}-section`).classList.add('active');
         });
     });
+
+    // Function to ensure loading state doesn't get stuck
+function setupLoadingStateProtection() {
+    // After 15 seconds, forcibly clear any loading state
+    setTimeout(() => {
+        const loadingElements = document.querySelectorAll('.loading');
+        if (loadingElements.length > 0) {
+            console.warn("Loading state protection triggered - clearing stuck loading indicators");
+            
+            loadingElements.forEach(el => {
+                const parent = el.parentNode;
+                if (parent && parent.classList.contains('empty-state')) {
+                    parent.innerHTML = 'No data to display';
+                }
+            });
+            
+            showNotification('Loading took too long - please try refreshing data manually', 'warning');
+        }
+    }, 15000);
+}
     
     // Initialize automation toggle
     const automationToggle = document.getElementById('automation-toggle');
@@ -1678,6 +1701,13 @@ function fetchInstagramData() {
         return;
     }
     
+    // Set a timeout to ensure we don't get stuck loading
+    const loadingTimeout = setTimeout(() => {
+        console.warn("Data fetch timeout - falling back to sample data");
+        loadSampleData();
+        showNotification('Data fetch timeout - using sample data', 'warning');
+    }, 10000); // 10 seconds timeout
+    
     // Use sample data as fallback if API calls fail
     let usingSampleData = false;
     
@@ -1691,7 +1721,6 @@ function fetchInstagramData() {
     fetchInstagramMessages()
         .catch(error => {
             console.error('Error fetching Instagram messages:', error);
-            showNotification('Unable to load messages, using sample data', 'warning');
             
             // Fall back to sample data
             messages = getSampleMessages();
@@ -1717,12 +1746,18 @@ function fetchInstagramData() {
         if (apiStatus.messages && apiStatus.comments) {
             // All calls complete, update UI
             updateActivityFeed();
-            document.getElementById('last-updated-time').textContent = new Date().toLocaleTimeString();
-            
-            if (usingSampleData) {
-                // Add an indicator that some data is sample data
-                document.getElementById('last-updated-time').textContent += ' (sample data)';
+            const lastUpdatedTime = document.getElementById('last-updated-time');
+            if (lastUpdatedTime) {
+                lastUpdatedTime.textContent = new Date().toLocaleTimeString();
+                
+                if (usingSampleData) {
+                    // Add an indicator that some data is sample data
+                    lastUpdatedTime.textContent += ' (sample data)';
+                }
             }
+            
+            // Clear the timeout since we completed normally
+            clearTimeout(loadingTimeout);
         }
     }
 }
@@ -1908,12 +1943,14 @@ function setupMessageInputListeners() {
 function verifyTokenValidity(token, userId) {
     console.log("Verifying token validity for user:", userId);
     
-    // Add a delay before validation to ensure Instagram has processed the token
+    // First, show that we're trying to fetch data
+    showLoadingState();
+    
+    // Add a delay before validation
     setTimeout(() => {
-        // Ensure userId is a string when making the request
+        // Ensure userId is a string
         const userIdStr = String(userId);
         
-        // Make the API call to verify token
         fetch(`https://graph.facebook.com/v18.0/${userIdStr}?fields=id,username&access_token=${token}`)
             .then(response => {
                 console.log("Token validation status:", response.status);
@@ -1926,15 +1963,17 @@ function verifyTokenValidity(token, userId) {
                     // Only log out for very specific permanent errors
                     if (data.error.code === 190 && 
                         (data.error.error_subcode === 463 || data.error.error_subcode === 467)) {
-                        // Only logout for permanently invalid tokens that can't be refreshed
                         console.error('Token is permanently invalid:', data.error);
                         logoutUser();
                         showNotification('Your session has expired. Please login again.', 'error');
                     } else {
-                        // For ALL other errors, keep session active
+                        // For ALL other errors, keep session active and load sample data
                         console.warn('API returned error but keeping session:', data.error);
-                        showNotification('Minor connection issue, but session maintained', 'warning');
                         updateUIForLoggedInUser();
+                        
+                        // Important: Load sample data even with errors
+                        loadSampleData();
+                        showNotification('Minor connection issue, but session maintained - using sample data', 'warning');
                     }
                 } else {
                     // Token is valid
@@ -1944,12 +1983,57 @@ function verifyTokenValidity(token, userId) {
                 }
             })
             .catch(error => {
-                // On network error, don't log out
+                // On network error, don't log out and use sample data
                 console.error('Network error during validation:', error);
-                showNotification('Connection issue detected, but session maintained', 'warning');
                 updateUIForLoggedInUser();
+                
+                // Important: Load sample data on network error
+                loadSampleData();
+                showNotification('Connection issue detected, using sample data', 'warning');
             });
-    }, 2000); // Add a 2-second delay before validation
+    }, 2000);
+}
+
+// Function to load sample data when API calls fail
+function loadSampleData() {
+    console.log("Loading sample data as fallback");
+    
+    // Use sample messages and populate the UI
+    messages = getSampleMessages();
+    populateConversations(messages);
+    
+    // Use sample comments
+    comments = getSampleComments();
+    populateComments(comments);
+    
+    // Update dashboard stats and activity feed
+    updateDashboardStats();
+    updateActivityFeed();
+    
+    // Update last updated time with indication that sample data is being used
+    const lastUpdatedTime = document.getElementById('last-updated-time');
+    if (lastUpdatedTime) {
+        lastUpdatedTime.textContent = new Date().toLocaleTimeString() + ' (sample data)';
+    }
+    
+    // Reset loading state
+    const sections = ['dashboard', 'messages', 'comments'];
+    sections.forEach(section => {
+        const container = document.getElementById(`${section}-section`);
+        if (container) {
+            const loadingElements = container.querySelectorAll('.loading');
+            loadingElements.forEach(el => {
+                const parent = el.parentNode;
+                if (parent && parent.classList.contains('empty-state')) {
+                    if (section === 'messages') {
+                        parent.innerHTML = '<p>Select a conversation to view messages</p>';
+                    } else {
+                        parent.innerHTML = 'No data to display';
+                    }
+                }
+            });
+        }
+    });
 }
 
 // Improved checkLoginStatus function to be more conservative
