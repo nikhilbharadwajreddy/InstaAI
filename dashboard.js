@@ -30,12 +30,14 @@ let comments = [];
 let automationEnabled = false;
 
 // API endpoints
+// Update API_ENDPOINTS around line 21
 const API_ENDPOINTS = {
     exchangeToken: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token',
     webhook: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/webhook',
-    // Add new endpoints for our new Lambda functions
     storeToken: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/store-token',
     sendMessage: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/send-message',
+    getMessages: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-messages',
+    getConversations: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-conversations',
     getEvents: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-events'
 };
 
@@ -422,26 +424,60 @@ function resetDataContainers() {
 }
 
 // Fetch Instagram data (messages, comments, etc.)
+// Update fetchInstagramData to handle conversation fetching errors better
 function fetchInstagramData() {
-    // In a real app, you would call your backend APIs to fetch this data
-    // For demonstration, we'll populate with sample data
+    showLoadingState();
     
-    // Simulate API call delay
-    setTimeout(() => {
-        // Populate sample messages
-        messages = getSampleMessages();
-        populateConversations(messages);
-        
-        // Populate sample comments
-        comments = getSampleComments();
-        populateComments(comments);
-        
-        // Update dashboard stats
-        updateDashboardStats();
-        
-        // Update activity feed
-        updateActivityFeed();
-    }, 1000);
+    // Check if we have an access token
+    if (!accessToken || !instagramUserId) {
+        showNotification('Please login with Instagram first', 'error');
+        resetDataContainers();
+        return;
+    }
+    
+    // Set a timeout to ensure we don't get stuck loading
+    const loadingTimeout = setTimeout(() => {
+        console.warn("Data fetch timeout - falling back to sample data");
+        loadSampleData();
+        showNotification('Data fetch timeout - using sample data', 'warning');
+    }, 15000); // 15 seconds timeout for conversations
+    
+    // Try to fetch real data, fall back to sample data if needed
+    console.log("Attempting to fetch Instagram data with user ID:", instagramUserId);
+    
+    fetchInstagramMessages()
+        .then(fetchedMessages => {
+            console.log("Successfully fetched messages:", fetchedMessages.length);
+            clearTimeout(loadingTimeout);
+            
+            // Update UI with real data
+            messages = fetchedMessages;
+            populateConversations(messages);
+            
+            // Get comments (using sample data for now)
+            comments = getSampleComments();
+            populateComments(comments);
+            
+            // Update dashboard and activity feed
+            updateDashboardStats();
+            updateActivityFeed();
+            
+            // Update last updated time
+            const lastUpdatedTime = document.getElementById('last-updated-time');
+            if (lastUpdatedTime) {
+                lastUpdatedTime.textContent = new Date().toLocaleTimeString();
+            }
+            
+            showNotification('Data refreshed successfully!', 'success');
+        })
+        .catch(error => {
+            console.error("Error fetching Instagram data:", error);
+            clearTimeout(loadingTimeout);
+            
+            // Fall back to sample data
+            loadSampleData();
+            showNotification('Using sample data due to API error', 'warning');
+        });
 }
 
 // Populate conversations sidebar
@@ -1046,6 +1082,82 @@ function setupConnectionRecovery() {
         }
     }, 30000); // Check every 30 seconds
 }
+
+// Add this function after setupConnectionRecovery
+function pollForNewEvents() {
+    // Only poll if user is logged in
+    if (!accessToken || !instagramUserId) return;
+    
+    console.log("Polling for new events...");
+    
+    fetch(`${API_ENDPOINTS.getEvents}?user_id=${instagramUserId}&last_minutes=5`, {
+        method: 'GET',
+        headers: {'Content-Type': 'application/json'}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            console.error('Error getting events:', data.error);
+            return;
+        }
+        
+        if (data.events && data.events.length > 0) {
+            console.log('New events received:', data.events.length);
+            
+            // Check if any events require UI updates
+            let needsRefresh = false;
+            
+            data.events.forEach(event => {
+                // Process event
+                if (event.messaging) {
+                    needsRefresh = true;
+                }
+            });
+            
+            // Refresh data if needed
+            if (needsRefresh) {
+                fetchInstagramData();
+                showNotification('New messages received', 'info');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error polling for events:', error);
+    });
+}
+
+// Add this function to set up polling
+function setupEventPolling() {
+    // Poll every 30 seconds
+    const pollingInterval = setInterval(pollForNewEvents, 30000);
+    
+    // Store interval ID for cleanup
+    window.pollingIntervalId = pollingInterval;
+    
+    // Start initial poll
+    pollForNewEvents();
+}
+
+// Add to updateUIForLoggedInUser function
+function updateUIForLoggedInUser() {
+    // (existing code)
+    
+    // Set up event polling
+    setupEventPolling();
+}
+
+// Update logoutUser to clear polling
+function logoutUser() {
+    // (existing code)
+    
+    // Clear polling interval
+    if (window.pollingIntervalId) {
+        clearInterval(window.pollingIntervalId);
+    }
+    
+    // (rest of code)
+}
+
 // Helper function to format timestamps
 function formatTimestamp(timestamp) {
     const date = new Date(timestamp);
@@ -1334,12 +1446,12 @@ function runConnectionTest(token, userId) {
     const tests = [
         {
             name: 'API Availability',
-            url: 'https://graph.facebook.com/v18.0/',
+            url: 'https://graph.facebook.com/v22.0/',
             method: 'GET'
         },
         {
             name: 'User Profile',
-            url: `https://graph.facebook.com/v18.0/${userId}?fields=id,username&access_token=${token}`,
+            url: `https://graph.facebook.com/v22.0/${userId}?fields=id,username&access_token=${token}`,
             method: 'GET'
         }
     ];
@@ -1499,15 +1611,23 @@ function loginWithInstagram() {
     const connectingNotification = showConnectionStatus('connecting');
     
     // Define the OAuth URL with all required permissions
+    // const oauthUrl = "https://www.instagram.com/oauth/authorize" + 
+    //     "?client_id=2388890974807228" +
+    //     "&redirect_uri=https://nikhilbharadwajreddy.github.io/InstaAI/insta_redirect.html" +
+    //     "&scope=instagram_business_basic,instagram_business_manage_messages," +
+    //     "instagram_business_manage_comments,instagram_business_content_publish," +
+    //     "instagram_business_manage_insights" +
+    //     "&response_type=code" +
+    //     "&state=" + generateStateParam();
+
+    // Around line 483
     const oauthUrl = "https://www.instagram.com/oauth/authorize" + 
         "?client_id=2388890974807228" +
         "&redirect_uri=https://nikhilbharadwajreddy.github.io/InstaAI/insta_redirect.html" +
-        "&scope=instagram_business_basic,instagram_business_manage_messages," +
-        "instagram_business_manage_comments,instagram_business_content_publish," +
-        "instagram_business_manage_insights" +
+        "&scope=pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messaging" +
         "&response_type=code" +
         "&state=" + generateStateParam();
-    
+        
     // Store the current timestamp for OAuth initiation
     localStorage.setItem('oauth_initiated', Date.now());
     
@@ -1763,76 +1883,107 @@ function fetchInstagramData() {
 }
 
 // Convert fetchInstagramMessages to return a Promise for better error handling
+// Replace the fetchInstagramMessages function (around line 536)
 function fetchInstagramMessages() {
     return new Promise((resolve, reject) => {
-        // Call the getMessages Lambda function
         console.log("Fetching messages from API with user ID:", instagramUserId);
         
-        fetch(`${API_ENDPOINTS.getMessages}?user_id=${instagramUserId}`, {
+        // First, get conversations
+        fetch(`${API_ENDPOINTS.getConversations}?user_id=${instagramUserId}`, {
             method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: {'Content-Type': 'application/json'}
         })
         .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-            }
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             return response.json();
         })
         .then(data => {
             if (data.error) {
                 console.error('API returned error:', data.error);
-                reject(new Error(data.error.message || 'API error'));
-                return;
+                throw new Error(data.error.message || 'API error');
             }
             
-            console.log('Messages data received:', data);
+            if (!data.data || data.data.length === 0) {
+                console.log('No conversations found');
+                throw new Error('No conversations found');
+            }
             
-            // Transform the data into our message format
+            console.log('Conversations data received:', data);
+            
+            // Transform conversation data into our message format
             const instaMessages = [];
+            const processedConversations = [];
             
-            if (data.data && data.data.length > 0) {
-                data.data.forEach(conversation => {
-                    if (conversation.messages && conversation.messages.data) {
-                        const conversationId = conversation.id;
-                        const participants = conversation.participants;
+            // Process each conversation to get messages
+            data.data.forEach(conversation => {
+                const conversationId = conversation.id;
+                processedConversations.push(
+                    fetch(`${API_ENDPOINTS.getMessages}?conversation_id=${conversationId}&user_id=${instagramUserId}`, {
+                        method: 'GET',
+                        headers: {'Content-Type': 'application/json'}
+                    })
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(messagesData => {
+                        if (messagesData.error) {
+                            console.error('API returned error for messages:', messagesData.error);
+                            return [];
+                        }
+                        
+                        if (!messagesData.data || messagesData.data.length === 0) {
+                            console.log(`No messages found for conversation ${conversationId}`);
+                            return [];
+                        }
                         
                         // Find the other participant (not the user)
                         let participant = null;
-                        if (participants && participants.data && participants.data.length > 0) {
-                            participant = participants.data.find(p => p.id !== instagramUserId);
+                        if (conversation.participants && conversation.participants.data && conversation.participants.data.length > 0) {
+                            participant = conversation.participants.data.find(p => p.id !== instagramUserId);
                         }
                         
-                        if (participant) {
-                            // Process each message in the conversation
-                            conversation.messages.data.forEach(msg => {
-                                instaMessages.push({
-                                    id: msg.id,
-                                    userId: participant.id,
-                                    username: participant.username || 'Instagram User',
-                                    profileImg: participant.profile_pic_url || 'https://via.placeholder.com/40',
-                                    type: msg.from.id === instagramUserId ? 'sent' : 'received',
-                                    message: msg.message,
-                                    timestamp: new Date(msg.created_time),
-                                    read: true, // Assume read for simplicity
-                                    automated: false
-                                });
-                            });
-                        }
-                    }
-                });
-            }
+                        // Parse messages into our format
+                        const conversationMessages = messagesData.data.map(msg => ({
+                            id: msg.id,
+                            userId: participant?.id || 'unknown',
+                            username: participant?.username || 'Instagram User',
+                            profileImg: participant?.profile_pic_url || 'https://via.placeholder.com/40',
+                            type: msg.from?.id === instagramUserId ? 'sent' : 'received',
+                            message: msg.message || '',
+                            timestamp: new Date(msg.created_time),
+                            read: true, // Assume read for simplicity
+                            automated: false
+                        }));
+                        
+                        return conversationMessages;
+                    })
+                    .catch(error => {
+                        console.error(`Error fetching messages for conversation ${conversationId}:`, error);
+                        return [];
+                    })
+                );
+            });
             
-            // If we successfully got messages, update the UI
-            if (instaMessages.length > 0) {
-                messages = instaMessages;
-                populateConversations(messages);
-                resolve(messages);
-            } else {
-                console.log('No messages found in API response');
-                reject(new Error('No messages found'));
-            }
+            // Collect all message data from all conversations
+            Promise.all(processedConversations)
+                .then(conversationMessages => {
+                    // Flatten array of conversation messages
+                    const allMessages = conversationMessages.flat();
+                    
+                    if (allMessages.length > 0) {
+                        messages = allMessages;
+                        populateConversations(messages);
+                        resolve(messages);
+                    } else {
+                        console.log('No messages found in any conversation');
+                        reject(new Error('No messages found'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error processing conversations:', error);
+                    reject(error);
+                });
         })
         .catch(error => {
             console.error('Error in fetchInstagramMessages:', error);
@@ -1851,6 +2002,10 @@ function sendInstagramMessage(recipientId, messageText) {
     // Show a sending indicator
     showNotification('Sending message...', 'info');
     
+    // Ensure IDs are strings
+    const userIdStr = String(instagramUserId);
+    const recipientIdStr = String(recipientId);
+    
     // Call the sendMessage Lambda function
     fetch(API_ENDPOINTS.sendMessage, {
         method: 'POST',
@@ -1858,8 +2013,8 @@ function sendInstagramMessage(recipientId, messageText) {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            user_id: instagramUserId,
-            recipient_id: recipientId,
+            user_id: userIdStr,
+            recipient_id: recipientIdStr,
             message: messageText
         })
     })
@@ -1867,7 +2022,7 @@ function sendInstagramMessage(recipientId, messageText) {
     .then(data => {
         if (data.error) {
             console.error('Error sending message:', data.error);
-            showNotification('Error sending message', 'error');
+            showNotification('Error sending message: ' + (data.error.message || 'Unknown error'), 'error');
             return;
         }
         
@@ -1879,7 +2034,7 @@ function sendInstagramMessage(recipientId, messageText) {
     })
     .catch(error => {
         console.error('Error sending Instagram message:', error);
-        showNotification('Failed to send message', 'error');
+        showNotification('Failed to send message: ' + error.message, 'error');
     });
 }
 
@@ -1939,7 +2094,7 @@ function setupMessageInputListeners() {
 
 
 // New function to verify token validity
-// Replace the existing verifyTokenValidity function with this more robust version
+// Update verifyTokenValidity function to check account type (around line 566)
 function verifyTokenValidity(token, userId) {
     console.log("Verifying token validity for user:", userId);
     
@@ -1951,7 +2106,8 @@ function verifyTokenValidity(token, userId) {
         // Ensure userId is a string
         const userIdStr = String(userId);
         
-        fetch(`https://graph.facebook.com/v18.0/${userIdStr}?fields=id,username&access_token=${token}`)
+        // Request additional account info to check account type
+        fetch(`https://graph.facebook.com/v22.0/${userIdStr}?fields=id,username,account_type,is_business&access_token=${token}`)
             .then(response => {
                 console.log("Token validation status:", response.status);
                 return response.json();
@@ -1961,8 +2117,7 @@ function verifyTokenValidity(token, userId) {
                 
                 if (data.error) {
                     // Only log out for very specific permanent errors
-                    if (data.error.code === 190 && 
-                        (data.error.error_subcode === 463 || data.error.error_subcode === 467)) {
+                    if (data.error.code === 190) {
                         console.error('Token is permanently invalid:', data.error);
                         logoutUser();
                         showNotification('Your session has expired. Please login again.', 'error');
@@ -1976,10 +2131,16 @@ function verifyTokenValidity(token, userId) {
                         showNotification('Minor connection issue, but session maintained - using sample data', 'warning');
                     }
                 } else {
-                    // Token is valid
-                    console.log('Token is valid, user is authenticated');
-                    updateUIForLoggedInUser();
-                    fetchInstagramData();
+                    // Check if this is a professional account
+                    if (!data.is_business) {
+                        showNotification('You need to use a Professional Instagram account linked to a Facebook Page.', 'error', 10000);
+                        loadSampleData();
+                    } else {
+                        // Token is valid and account type is correct
+                        console.log('Token is valid, user is authenticated');
+                        updateUIForLoggedInUser();
+                        fetchInstagramData();
+                    }
                 }
             })
             .catch(error => {
@@ -1993,7 +2154,6 @@ function verifyTokenValidity(token, userId) {
             });
     }, 2000);
 }
-
 // Function to load sample data when API calls fail
 function loadSampleData() {
     console.log("Loading sample data as fallback");
