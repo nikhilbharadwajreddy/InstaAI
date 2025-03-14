@@ -1,18 +1,20 @@
 import json
 import boto3
 import requests
-import os
 from botocore.exceptions import ClientError
+from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Initialize DynamoDB client
+# Initialize DynamoDB resource and tables
 dynamodb = boto3.resource('dynamodb')
 token_table = dynamodb.Table('InstagramTokens')
+messages_table = dynamodb.Table('InstagramMessages')
 
 def lambda_handler(event, context):
     try:
         print("Received Event:", json.dumps(event))
         
-        # Parse the request
+        # Parse query parameters from the event
         query_params = event.get('queryStringParameters', {}) or {}
         user_id = query_params.get('user_id')
         conversation_id = query_params.get('conversation_id')
@@ -35,64 +37,62 @@ def lambda_handler(event, context):
         try:
             response = token_table.get_item(Key={'user_id': user_id})
             item = response.get('Item', {})
-            
             if not item:
                 return {
                     'statusCode': 404,
-                    'headers': {
-                        "Content-Type": "application/json",
-                        "Access-Control-Allow-Origin": "*"
-                    },
+                    'headers': {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
                     'body': json.dumps({'error': 'User token not found'})
                 }
-                
             access_token = item.get('access_token')
-            
             if not access_token:
                 return {
                     'statusCode': 401,
-                    'headers': {
-                        "Content-Type": "application/json",
-                        "Access-Control-Allow-Origin": "*"
-                    },
+                    'headers': {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
                     'body': json.dumps({'error': 'Access token not found'})
                 }
-            
         except ClientError as e:
             print(f"Error retrieving token: {e}")
             return {
                 'statusCode': 500,
-                'headers': {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*"
-                },
+                'headers': {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
                 'body': json.dumps({'error': str(e)})
             }
         
-        # Prepare API call - if conversation_id is provided, get messages for that conversation
-        # Otherwise get all conversations with messages
+        # Determine endpoint and fields based on the presence of conversation_id.
+        # - If conversation_id is provided: get messages in that conversation.
+        # - Otherwise, list conversations.
         if conversation_id:
-            ig_api_url = f"https://graph.facebook.com/v22.0/{conversation_id}"
-            fields = 'messages{id,message,from,to,created_time,attachments}'
+            ig_api_url = f"https://graph.instagram.com/v22.0/{conversation_id}"
+            fields = "messages"
         else:
-            ig_api_url = f"https://graph.facebook.com/v22.0/{user_id}/conversations"
-            fields = 'messages{id,message,from,to,created_time,attachments}'
+            ig_api_url = "https://graph.instagram.com/v22.0/me/conversations"
+            fields = "id,updated_time"
         
         params = {
             'fields': fields,
             'access_token': access_token
         }
+        if not conversation_id:
+            params['platform'] = 'instagram'
         
-        response = requests.get(ig_api_url, params=params)
-        result = response.json()
-        
+        api_response = requests.get(ig_api_url, params=params)
+        if api_response.text:
+            result = api_response.json()
+        else:
+            result = {}
         print("Instagram API Response (truncated):", json.dumps(result)[:500])
         
-        if response.status_code == 200:
-            # Store messages in DynamoDB for history (optional)
+        if api_response.status_code == 200:
+            # If conversation_id is provided, fetch full details for each message.
             if conversation_id and 'messages' in result and 'data' in result['messages']:
-                store_messages(result['messages']['data'], user_id, conversation_id)
-                
+                full_messages = fetch_full_messages(result['messages']['data'], access_token)
+                # Optionally, store these full messages in DynamoDB.
+                store_messages(full_messages, user_id, conversation_id)
+                response_body = {"messages": full_messages, "conversation_id": conversation_id}
+            else:
+                # No conversation_id means we are listing conversations.
+                response_body = result
+            
             return {
                 'statusCode': 200,
                 'headers': {
@@ -100,19 +100,17 @@ def lambda_handler(event, context):
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Methods": "GET, OPTIONS"
                 },
-                'body': json.dumps(result)
+                'body': json.dumps(response_body)
             }
         else:
+            error_details = result.get('error', {})
             return {
-                'statusCode': response.status_code,
-                'headers': {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*"
-                },
+                'statusCode': api_response.status_code,
+                'headers': {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
                 'body': json.dumps({
-                    'error': result.get('error', {}).get('message', 'Unknown error'),
-                    'error_code': result.get('error', {}).get('code', 'unknown'),
-                    'error_subcode': result.get('error', {}).get('error_subcode', 'unknown')
+                    'error': error_details.get('message', 'Unknown error'),
+                    'error_code': error_details.get('code', 'unknown'),
+                    'error_subcode': error_details.get('error_subcode', 'unknown')
                 })
             }
             
@@ -120,45 +118,63 @@ def lambda_handler(event, context):
         print(f"Lambda Error: {str(e)}")
         return {
             'statusCode': 500,
-            'headers': {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*"
-            },
+            'headers': {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
             'body': json.dumps({'error': str(e)})
         }
 
+def get_message_details(message_id, access_token):
+    """Retrieve full details for a given message_id."""
+    msg_url = f"https://graph.instagram.com/v22.0/{message_id}"
+    params = {
+        "fields": "id,created_time,from,to,message",
+        "access_token": access_token
+    }
+    response = requests.get(msg_url, params=params)
+    if response.status_code == 200 and response.text:
+        return response.json()
+    else:
+        print(f"Failed to retrieve details for {message_id}: {response.status_code}")
+        return None
+
+def fetch_full_messages(message_list, access_token):
+    """Fetch full details for each message concurrently."""
+    full_messages = []
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        future_to_msg_id = {
+            executor.submit(get_message_details, msg['id'], access_token): msg['id']
+            for msg in message_list if 'id' in msg
+        }
+        for future in as_completed(future_to_msg_id):
+            msg_id = future_to_msg_id[future]
+            try:
+                details = future.result()
+                if details:
+                    full_messages.append(details)
+            except Exception as e:
+                print(f"Error fetching details for message {msg_id}: {e}")
+    return full_messages
+
 def store_messages(messages, user_id, conversation_id):
-    """Store messages in DynamoDB (optional)"""
-    # Initialize messages table
+    """Store detailed messages in DynamoDB for historical record."""
     try:
-        messages_table = dynamodb.Table('InstagramMessages')
-        
-        # Process each message
-        for msg in messages:
-            # Skip if no message ID
-            if 'id' not in msg:
+        for message_details in messages:
+            if not message_details or 'id' not in message_details:
                 continue
-                
-            # Prepare item for DynamoDB
+            
             item = {
-                'message_id': msg['id'],
+                'message_id': message_details.get('id'),
                 'conversation_id': conversation_id,
                 'user_id': user_id,
-                'message': msg.get('message', ''),
-                'created_time': msg.get('created_time', ''),
+                'created_time': message_details.get('created_time', ''),
                 'timestamp': int(datetime.now().timestamp())
             }
+            if 'message' in message_details:
+                item['message'] = message_details.get('message', '')
+            if 'from' in message_details and 'id' in message_details['from']:
+                item['sender_id'] = message_details['from']['id']
+            if 'to' in message_details and 'data' in message_details['to'] and len(message_details['to']['data']) > 0:
+                item['recipient_id'] = message_details['to']['data'][0].get('id')
             
-            # Add sender and recipient if available
-            if 'from' in msg and 'id' in msg['from']:
-                item['sender_id'] = msg['from']['id']
-                
-            if 'to' in msg and 'data' in msg['to'] and len(msg['to']['data']) > 0:
-                item['recipient_id'] = msg['to']['data'][0]['id']
-            
-            # Store in DynamoDB
             messages_table.put_item(Item=item)
-                
     except Exception as e:
-        # Log error but continue - this is optional storage
         print(f"Error storing messages: {str(e)}")
