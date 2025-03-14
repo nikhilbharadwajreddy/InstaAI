@@ -1,19 +1,30 @@
-<!-- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instagram OAuth Processing</title>
+    <title>Instagram OAuth Redirect</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             text-align: center;
-            padding: 50px;
-            background: #f7f7f7;
+            padding: 40px 20px;
+            background-color: #f7f7f7;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #405DE6;
         }
         .loader {
             border: 5px solid #f3f3f3;
-            border-top: 5px solid #3498db;
+            border-top: 5px solid #405DE6;
             border-radius: 50%;
             width: 50px;
             height: 50px;
@@ -24,674 +35,91 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .message {
-            margin-top: 20px;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            margin-top: 20px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-        .error-message {
-            color: #e74c3c;
-            font-weight: bold;
+        .success, .error {
             margin: 20px 0;
-        }
-        .warning-message {
-            color: #f39c12;
-            font-weight: bold;
-            margin: 20px 0;
-        }
-        .debug-info {
-            text-align: left;
-            background-color: #f8f9fa;
-            border: 1px solid #ddd;
-            padding: 15px;
-            margin-top: 30px;
+            padding: 10px;
             border-radius: 5px;
-            font-family: monospace;
-            max-height: 200px;
-            overflow-y: auto;
         }
-        .success-message {
-            color: #2ecc71;
-            font-weight: bold;
-            margin: 20px 0;
+        .success {
+            background-color: #d4edda;
+            color: #155724;
         }
-        .token-info {
-            text-align: left;
-            padding: 15px;
-            margin: 10px auto;
-            max-width: 500px;
-            background-color: #edf7ff;
-            border-radius: 5px;
-            border: 1px solid #bde5ff;
-            font-size: 14px;
-        }
-        .token-info h3 {
-            margin-top: 0;
-            color: #3498db;
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
         }
     </style>
 </head>
 <body>
-    <h1>Connecting your Instagram account...</h1>
-    <div class="loader"></div>
-    <p id="status-message" class="message">Processing your authorization...</p>
-    <div id="token-info-container"></div>
-    <div id="success-container"></div>
-    <div id="warning-container"></div>
-    <div id="error-container"></div>
-    <div id="button-container"></div>
-    <div id="debug-container" class="debug-info" style="display: none;"></div>
-
+    <div class="container">
+        <h1>Processing Instagram Connection</h1>
+        <div id="loader" class="loader"></div>
+        <p id="status">Authenticating your Instagram account...</p>
+        <div id="message"></div>
+    </div>
+    
     <script>
-        // Debug helper function
-        function logDebug(message, data) {
-            console.log(message, data);
-            
-            const debugContainer = document.getElementById("debug-container");
-            const logEntry = document.createElement("div");
-            
-            if (typeof data === 'object') {
-                logEntry.textContent = `${message} ${JSON.stringify(data, null, 2)}`;
-            } else {
-                logEntry.textContent = `${message} ${data || ''}`;
-            }
-            
-            debugContainer.appendChild(logEntry);
-            debugContainer.appendChild(document.createElement("hr"));
-            debugContainer.style.display = "block";
-        }
-        
-        // Test storage accessibility
-        function testStorage() {
-            try {
-                // Test sessionStorage
-                sessionStorage.setItem('test', 'test');
-                const sessionTest = sessionStorage.getItem('test');
-                sessionStorage.removeItem('test');
-                
-                // Test localStorage
-                localStorage.setItem('test', 'test');
-                const localTest = localStorage.getItem('test');
-                localStorage.removeItem('test');
-                
-                logDebug("Storage test:", {
-                    sessionStorage: sessionTest === 'test' ? "Working" : "Failed",
-                    localStorage: localTest === 'test' ? "Working" : "Failed"
-                });
-                
-                return {
-                    sessionStorage: sessionTest === 'test',
-                    localStorage: localTest === 'test'
-                };
-            } catch (error) {
-                logDebug("Storage test failed:", error.message);
-                return { sessionStorage: false, localStorage: false };
-            }
-        }
-        
-        // Function to safely store tokens
-        function safelyStoreTokens(accessToken, userId, tokenType, pageId) {
-            let sessionStorageSuccess = false;
-            let localStorageSuccess = false;
-            
-            try {
-                // Store the token and user ID in sessionStorage
-                sessionStorage.setItem('instagram_access_token', accessToken);
-                sessionStorage.setItem('instagram_user_id', userId);
-                sessionStorage.setItem('instagram_token_type', tokenType || 'unknown');
-                if (pageId) sessionStorage.setItem('instagram_page_id', pageId);
-                sessionStorageSuccess = true;
-                logDebug("Session storage success:", "Tokens stored");
-            } catch (sessionError) {
-                logDebug("Session storage error:", sessionError.message);
-            }
-            
-            try {
-                // Store in localStorage for persistence
-                localStorage.setItem('instagram_access_token', accessToken);
-                localStorage.setItem('instagram_user_id', userId);
-                localStorage.setItem('instagram_token_type', tokenType || 'unknown');
-                if (pageId) localStorage.setItem('instagram_page_id', pageId);
-                localStorageSuccess = true;
-                logDebug("Local storage success:", "Tokens stored");
-            } catch (localError) {
-                logDebug("Local storage error:", localError.message);
-            }
-            
-            // Verify storage was successful
-            const sessionVerify = sessionStorage.getItem('instagram_access_token') === accessToken;
-            const localVerify = localStorage.getItem('instagram_access_token') === accessToken;
-            
-            logDebug("Storage verification:", {
-                sessionStorage: sessionVerify ? "Verified" : "Failed",
-                localStorage: localVerify ? "Verified" : "Failed"
-            });
-            
-            return sessionStorageSuccess || localStorageSuccess;
-        }
-        
-        // Display token info
-        function displayTokenInfo(data) {
-            const tokenInfoContainer = document.getElementById("token-info-container");
-            
-            const tokenInfo = document.createElement("div");
-            tokenInfo.className = "token-info";
-            
-            let tokenTypeDisplay = "Unknown";
-            switch(data.token_type) {
-                case "page_token":
-                    tokenTypeDisplay = "Facebook Page (preferred)";
-                    break;
-                case "long_lived_user":
-                    tokenTypeDisplay = "Long-lived User";
-                    break;
-                case "short_lived":
-                    tokenTypeDisplay = "Short-lived (limited)";
-                    break;
-            }
-            
-            tokenInfo.innerHTML = `
-                <h3>Connection Details</h3>
-                <p><strong>Account Type:</strong> ${tokenTypeDisplay}</p>
-                <p><strong>Account ID:</strong> ${data.user_id}</p>
-                ${data.page_id ? `<p><strong>Page ID:</strong> ${data.page_id}</p>` : ''}
-                ${data.warning ? `<p><strong>Note:</strong> ${data.warning}</p>` : ''}
-            `;
-            
-            tokenInfoContainer.appendChild(tokenInfo);
-        }
-        
-        window.onload = function() {
+        document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get("code");
-            const state = urlParams.get("state");
-            const error = urlParams.get("error");
-            
-            const statusMessage = document.getElementById("status-message");
-            const errorContainer = document.getElementById("error-container");
-            const warningContainer = document.getElementById("warning-container");
-            const successContainer = document.getElementById("success-container");
-            const buttonContainer = document.getElementById("button-container");
-            
-            logDebug("URL Parameters:", { 
-                code: code ? "Present" : "Not found",
-                state: state || "Not found",
-                error: error || "Not found"
-            });
-            
-            // Test storage capability early
-            const storageStatus = testStorage();
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
             
             if (error) {
-                logDebug("OAuth Error:", error);
-                showError("Instagram authentication error: " + error);
-                addRetryButton();
+                showError('Authentication failed: ' + error);
                 return;
             }
             
             if (!code) {
-                showError("No authorization code found in the URL.");
-                addRetryButton();
+                showError('No authorization code received');
                 return;
             }
             
-            // Clear any existing tokens
-            try {
-                sessionStorage.removeItem('instagram_access_token');
-                sessionStorage.removeItem('instagram_user_id');
-                sessionStorage.removeItem('instagram_token_type');
-                sessionStorage.removeItem('instagram_page_id');
-                localStorage.removeItem('instagram_access_token');
-                localStorage.removeItem('instagram_user_id');
-                localStorage.removeItem('instagram_token_type');
-                localStorage.removeItem('instagram_page_id');
-                logDebug("Cleared existing tokens", "Success");
-            } catch (clearError) {
-                logDebug("Error clearing tokens:", clearError.message);
-            }
-            
-            // Check if storage is available
-            if (!storageStatus.sessionStorage && !storageStatus.localStorage) {
-                showError("Browser storage is not available. This may be due to private browsing mode, cookie restrictions, or storage quota limits.");
-                addRetryButton();
-                return;
-            }
-            
-            statusMessage.textContent = "Exchanging authorization code for access token...";
-            
-            // Send the code to backend for token exchange
-            fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+            // Exchange code for token
+            fetch('https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: code })
             })
-            .then(response => {
-                logDebug("Token exchange response status:", response.status);
-                
-                // Check if the response is ok
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-                return response.json();
-            })
+            .then(response => response.json())
             .then(data => {
-                logDebug("Token exchange response data:", {
-                    access_token: data.access_token ? "Present" : "Missing",
-                    user_id: data.user_id || "Missing",
-                    token_type: data.token_type || "Unknown",
-                    warning: data.warning || "None"
-                });
-                
-                if (data.access_token && data.user_id) {
-                    // Display token info first
-                    displayTokenInfo(data);
-                    
-                    // Try to store tokens safely
-                    const storageSuccess = safelyStoreTokens(data.access_token, data.user_id, data.token_type, data.page_id);
-                    
-                    // Show any warnings
-                    if (data.warning) {
-                        showWarning(data.warning);
-                    }
-                    
-                    if (storageSuccess) {
-                        // Show success message
-                        showSuccess("Successfully connected to Instagram!");
-                        
-                        // Store token in backend
-                        storeTokenInBackend(data.access_token, data.user_id, data.token_type, data.page_id);
-                        
-                        // Get base URL for proper redirect
-                        const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
-                        
-                        // Show redirect countdown
-                        statusMessage.textContent = "Redirecting to dashboard in 5 seconds...";
-                        
-                        // Redirect with delay
-                        setTimeout(() => {
-                            window.location.href = baseUrl + "/index.html?login_success=true";
-                        }, 5000);
-                    } else {
-                        showError("Failed to save authentication data to browser storage. Please check your privacy settings and try again.");
-                        addRetryButton();
-                        
-                        // Add manual copy option
-                        addManualCopyOption(data.access_token, data.user_id, data.token_type, data.page_id);
-                    }
-                } else {
-                    showError("Invalid response from authentication server: " + 
-                        (data.error_message || data.error || "Missing access token"));
-                    addRetryButton();
+                if (data.error) {
+                    throw new Error(data.error);
                 }
+                if (!data.access_token || !data.user_id) {
+                    throw new Error('Invalid response from server');
+                }
+                
+                // Store the token
+                localStorage.setItem('instagram_access_token', data.access_token);
+                localStorage.setItem('instagram_user_id', data.user_id);
+                
+                // Show success and redirect
+                showSuccess('Connected successfully!');
+                setTimeout(() => {
+                    window.location.href = window.location.href.substring(0, window.location.href.lastIndexOf('/')) + '/index.html?login_success=true';
+                }, 2000);
             })
             .catch(error => {
-                console.error("Error:", error);
-                logDebug("Fetch error:", error.message);
-                showError("Error connecting to Instagram: " + error.message);
-                addRetryButton();
+                showError('Error: ' + error.message);
             });
-        };
+        });
         
-        // Function to display success messages
-        function showSuccess(message) {
-            const successContainer = document.getElementById("success-container");
-            const loader = document.querySelector(".loader");
-            
-            // Hide the loader
-            loader.style.display = "none";
-            
-            // Show success message
-            const successMessage = document.createElement("p");
-            successMessage.className = "success-message";
-            successMessage.textContent = message;
-            successContainer.appendChild(successMessage);
-        }
-        
-        // Function to display warning messages
-        function showWarning(message) {
-            const warningContainer = document.getElementById("warning-container");
-            
-            // Show warning message
-            const warningMessage = document.createElement("p");
-            warningMessage.className = "warning-message";
-            warningMessage.textContent = message;
-            warningContainer.appendChild(warningMessage);
-        }
-        
-        // Function to display error messages
         function showError(message) {
-            const statusMessage = document.getElementById("status-message");
-            const errorContainer = document.getElementById("error-container");
-            const loader = document.querySelector(".loader");
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('status').textContent = 'Connection Failed';
             
-            // Hide the loader
-            loader.style.display = "none";
-            
-            // Update status message
-            statusMessage.textContent = "Connection failed";
-            
-            // Show error message
-            const errorMessage = document.createElement("p");
-            errorMessage.className = "error-message";
-            errorMessage.textContent = message;
-            errorContainer.appendChild(errorMessage);
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = 'error';
+            messageDiv.textContent = message;
         }
         
-        // Function to add a retry button
-        function addRetryButton() {
-            const buttonContainer = document.getElementById("button-container");
+        function showSuccess(message) {
+            document.getElementById('loader').style.display = 'none';
+            document.getElementById('status').textContent = 'Connection Successful';
             
-            const retryButton = document.createElement("button");
-            retryButton.textContent = "Try Again";
-            retryButton.addEventListener("click", function() {
-                // Get base URL for proper redirect
-                const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
-                window.location.href = baseUrl + "/index.html";
-            });
-            
-            buttonContainer.appendChild(retryButton);
-        }
-        
-        // Function for manual token copy as a last resort
-        function addManualCopyOption(token, userId, tokenType, pageId) {
-            const debugContainer = document.getElementById("debug-container");
-            const manualSection = document.createElement("div");
-            manualSection.style.marginTop = "20px";
-            manualSection.innerHTML = `
-                <h3>Manual Authentication (Advanced)</h3>
-                <p>Copy these values and store them manually:</p>
-                <div>
-                    <strong>Access Token:</strong> 
-                    <input type="text" value="${token}" style="width:100%" readonly onClick="this.select();">
-                </div>
-                <div style="margin-top:10px">
-                    <strong>User ID:</strong> 
-                    <input type="text" value="${userId}" style="width:100%" readonly onClick="this.select();">
-                </div>
-                <div style="margin-top:10px">
-                    <strong>Token Type:</strong> 
-                    <input type="text" value="${tokenType || 'unknown'}" style="width:100%" readonly onClick="this.select();">
-                </div>
-                ${pageId ? `
-                <div style="margin-top:10px">
-                    <strong>Page ID:</strong> 
-                    <input type="text" value="${pageId}" style="width:100%" readonly onClick="this.select();">
-                </div>` : ''}
-                <p>Open your browser console (F12) and run these commands:</p>
-                <pre>
-localStorage.setItem('instagram_access_token', '${token}');
-localStorage.setItem('instagram_user_id', '${userId}');
-localStorage.setItem('instagram_token_type', '${tokenType || 'unknown'}');
-${pageId ? `localStorage.setItem('instagram_page_id', '${pageId}');` : ''}
-sessionStorage.setItem('instagram_access_token', '${token}');
-sessionStorage.setItem('instagram_user_id', '${userId}');
-sessionStorage.setItem('instagram_token_type', '${tokenType || 'unknown'}');
-${pageId ? `sessionStorage.setItem('instagram_page_id', '${pageId}');` : ''}
-                </pre>
-            `;
-            debugContainer.appendChild(manualSection);
-            debugContainer.style.display = "block";
-        }
-        
-        // Function to store token in backend
-        function storeTokenInBackend(token, userId, tokenType, pageId) {
-            logDebug("Storing token in backend for user:", userId);
-            
-            const payload = { 
-                access_token: token,
-                user_id: userId,
-                token_type: tokenType || 'unknown'
-            };
-            
-            if (pageId) {
-                payload.page_id = pageId;
-            }
-            
-            fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/store-token", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            })
-            .then(response => {
-                logDebug("Backend storage response status:", response.status);
-                return response.json();
-            })
-            .then(data => {
-                logDebug('Token storage result:', data);
-                
-                // Display token validation status if available
-                if (data.validation) {
-                    if (data.validation.valid) {
-                        showSuccess("Token validation successful! Your connection should work correctly.");
-                    } else {
-                        showWarning(`Token validation failed: ${data.validation.reason || 'Unknown reason'}`);
-                    }
-                }
-            })
-            .catch(error => {
-                logDebug("Error storing token in backend:", error.message);
-                showWarning("Warning: Failed to verify token with backend. Connection may be limited.");
-            });
-        }
-    </script>
-</body>
-</html> -->
-
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instagram OAuth Code - Testing Mode</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 30px;
-            background: #f7f7f7;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .code-display {
-            background-color: #edf7ff;
-            border: 2px solid #3498db;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: left;
-            word-break: break-all;
-            font-family: monospace;
-            position: relative;
-        }
-        .copy-button {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #3498db;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-        .copy-button:hover {
-            background: #2980b9;
-        }
-        h1 {
-            color: #333;
-        }
-        .instructions {
-            text-align: left;
-            background: #fff;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            margin: 20px 0;
-        }
-        .instructions h2 {
-            color: #3498db;
-            margin-top: 0;
-        }
-        .instructions ol {
-            margin-left: 20px;
-            line-height: 1.5;
-        }
-        .button {
-            padding: 10px 20px;
-            background-color: #3498db;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            margin: 10px 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .button:hover {
-            background-color: #2980b9;
-        }
-        .button.secondary {
-            background-color: #95a5a6;
-        }
-        .button.secondary:hover {
-            background-color: #7f8c8d;
-        }
-        .testing-banner {
-            background-color: #f39c12;
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-weight: bold;
-        }
-    </style>
-</head>
-<body>
-    <div class="testing-banner">TESTING MODE - Authorization Code Extractor</div>
-    
-    <h1>Instagram Authorization Code</h1>
-    
-    <div id="code-section">
-        <p>Your authorization code has been successfully retrieved.</p>
-        <div class="code-display" id="code-container">
-            <span id="auth-code">Loading...</span>
-            <button class="copy-button" onclick="copyCode()">Copy</button>
-        </div>
-    </div>
-    
-    <div class="instructions">
-        <h2>How to Use This Code</h2>
-        <ol>
-            <li>Copy the authorization code above using the "Copy" button</li>
-            <li>In Postman, create a POST request to:</li>
-            <li><code>https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token</code></li>
-            <li>Set Content-Type header to <code>application/json</code></li>
-            <li>In the request body, send: <code>{"code": "PASTE_CODE_HERE"}</code></li>
-            <li>Send the request to exchange for an access token</li>
-            <li><strong>Note:</strong> This code can only be used once and expires quickly</li>
-        </ol>
-    </div>
-    
-    <div>
-        <button class="button" onclick="proceedWithExchange()">Proceed with Normal Flow</button>
-        <button class="button secondary" onclick="goToDashboard()">Go to Dashboard</button>
-    </div>
-    
-    <script>
-        // Extract code from URL
-        function getAuthCode() {
-            const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get("code") || "No code found in URL";
-        }
-        
-        // Display the code when page loads
-        window.onload = function() {
-            const code = getAuthCode();
-            document.getElementById("auth-code").textContent = code;
-        }
-        
-        // Copy code to clipboard
-        function copyCode() {
-            const code = getAuthCode();
-            navigator.clipboard.writeText(code)
-                .then(() => {
-                    alert("Code copied to clipboard!");
-                })
-                .catch(err => {
-                    console.error('Could not copy text: ', err);
-                    
-                    // Fallback copy method
-                    const codeElem = document.getElementById("auth-code");
-                    const range = document.createRange();
-                    range.selectNode(codeElem);
-                    window.getSelection().removeAllRanges();
-                    window.getSelection().addRange(range);
-                    document.execCommand("copy");
-                    window.getSelection().removeAllRanges();
-                    alert("Code copied to clipboard!");
-                });
-        }
-        
-        // Proceed with the normal token exchange flow
-        function proceedWithExchange() {
-            if (confirm("This will continue with the normal flow and exchange your code for a token. The code will no longer be usable for testing. Continue?")) {
-                const code = getAuthCode();
-                
-                // Show exchange in progress
-                document.getElementById("code-container").innerHTML = "<p>Exchanging code for token...</p>";
-                
-                // Call your token exchange endpoint
-                fetch("https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ code: code })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.access_token && data.user_id) {
-                        // Store token
-                        localStorage.setItem('instagram_access_token', data.access_token);
-                        localStorage.setItem('instagram_user_id', data.user_id);
-                        sessionStorage.setItem('instagram_access_token', data.access_token);
-                        sessionStorage.setItem('instagram_user_id', data.user_id);
-                        
-                        // Update UI
-                        document.getElementById("code-container").innerHTML = 
-                            "<p>Success! Token received and stored.</p>" + 
-                            "<p>Redirecting to dashboard...</p>";
-                        
-                        // Redirect to dashboard
-                        setTimeout(() => {
-                            const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
-                            window.location.href = baseUrl + "/index.html?login_success=true";
-                        }, 2000);
-                    } else {
-                        document.getElementById("code-container").innerHTML = 
-                            "<p style='color:red'>Error: " + (data.error || "Failed to get token") + "</p>";
-                    }
-                })
-                .catch(error => {
-                    document.getElementById("code-container").innerHTML = 
-                        "<p style='color:red'>Error: " + error.message + "</p>";
-                });
-            }
-        }
-        
-        // Go to dashboard without exchanging
-        function goToDashboard() {
-            const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
-            window.location.href = baseUrl + "/index.html";
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = 'success';
+            messageDiv.textContent = message;
         }
     </script>
 </body>
