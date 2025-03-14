@@ -61,8 +61,12 @@
                     <div class="status-info">
                         <p>Status: <span id="connection-status">Not Connected</span></p>
                         <p>Username: <span id="instagram-username">N/A</span></p>
+                        <p>Token Expiry: <span id="token-expiry">N/A</span></p>
                     </div>
-                    <button id="disconnect-instagram" class="btn danger-btn" disabled>Disconnect</button>
+                    <div class="button-group">
+                        <button id="disconnect-instagram" class="btn danger-btn" disabled>Disconnect</button>
+                        <button id="delete-data" class="btn danger-btn" disabled>Delete My Data</button>
+                    </div>
                 </div>
                 
                 <div class="feature-container" style="display: none;">
@@ -123,7 +127,7 @@
                     <div class="connect-card">
                         <h3>Connect to Instagram</h3>
                         <p>Please connect your Instagram account to view messages</p>
-                        <button class="btn primary-btn" onclick="Auth.login()">
+                        <button class="btn primary-btn" onclick="location.href='auth-form.html'">
                             <i class="fab fa-instagram"></i> Connect Instagram
                         </button>
                     </div>
@@ -137,8 +141,12 @@
                     <div class="status-info">
                         <p>Connection Status: <span id="settings-connection-status">Not Connected</span></p>
                         <p>Instagram Username: <span id="settings-instagram-username">N/A</span></p>
+                        <p>Token Expires In: <span id="settings-token-expiry">N/A</span></p>
                     </div>
-                    <button id="settings-disconnect" class="btn danger-btn" disabled>Disconnect Account</button>
+                    <div class="button-group">
+                        <button id="settings-disconnect" class="btn danger-btn" disabled>Disconnect Account</button>
+                        <button id="settings-delete" class="btn danger-btn" disabled>Delete Data</button>
+                    </div>
                 </div>
                 
                 <div class="feature-container" style="display: none;">
@@ -153,6 +161,46 @@
                             <span>Polling is <span id="polling-status">active</span></span>
                         </div>
                     </div>
+                    
+                    <div class="card">
+                        <h3>Performance Settings</h3>
+                        <div class="setting-group">
+                            <label for="refresh-interval">Data Refresh Interval</label>
+                            <select id="refresh-interval">
+                                <option value="15000">15 seconds</option>
+                                <option value="30000" selected>30 seconds</option>
+                                <option value="60000">1 minute</option>
+                                <option value="300000">5 minutes</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label for="max-messages">Maximum Messages to Load</label>
+                            <select id="max-messages">
+                                <option value="20">20 messages</option>
+                                <option value="50" selected>50 messages</option>
+                                <option value="100">100 messages</option>
+                                <option value="200">200 messages</option>
+                            </select>
+                        </div>
+                        <button id="save-settings" class="btn primary-btn">Save Settings</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Confirmation Modal -->
+            <div id="confirm-modal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 id="modal-title">Confirmation</h3>
+                        <span class="close-modal">&times;</span>
+                    </div>
+                    <div id="modal-body" class="modal-body">
+                        <p>Are you sure you want to proceed?</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="modal-confirm" class="btn danger-btn">Confirm</button>
+                        <button id="modal-cancel" class="btn secondary-btn">Cancel</button>
+                    </div>
                 </div>
             </div>
         </main>
@@ -160,15 +208,180 @@
     
     <!-- Load Scripts -->
     <script src="utils.js"></script>
-    <script src="auth.js"></script>
+    <script src="token-manager.js"></script>
     <script src="conversations.js"></script>
     <script src="messages.js"></script>
     <script src="events.js"></script>
     
     <script>
+        // App configuration
+        const AppConfig = {
+            refreshInterval: 30000,
+            maxMessages: 50
+        };
+        
+        // Load settings from localStorage
+        function loadSettings() {
+            const savedInterval = localStorage.getItem('refresh_interval');
+            const savedMaxMessages = localStorage.getItem('max_messages');
+            
+            if (savedInterval) {
+                AppConfig.refreshInterval = parseInt(savedInterval);
+                document.getElementById('refresh-interval').value = savedInterval;
+            }
+            
+            if (savedMaxMessages) {
+                AppConfig.maxMessages = parseInt(savedMaxMessages);
+                document.getElementById('max-messages').value = savedMaxMessages;
+            }
+        }
+        
+        // Save settings to localStorage
+        function saveSettings() {
+            const refreshInterval = document.getElementById('refresh-interval').value;
+            const maxMessages = document.getElementById('max-messages').value;
+            
+            localStorage.setItem('refresh_interval', refreshInterval);
+            localStorage.setItem('max_messages', maxMessages);
+            
+            AppConfig.refreshInterval = parseInt(refreshInterval);
+            AppConfig.maxMessages = parseInt(maxMessages);
+            
+            Utils.showNotification('Settings saved successfully');
+        }
+        
+        // Show confirmation modal
+        function showConfirmModal(title, message, onConfirm) {
+            const modal = document.getElementById('confirm-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalBody = document.getElementById('modal-body');
+            const confirmBtn = document.getElementById('modal-confirm');
+            const cancelBtn = document.getElementById('modal-cancel');
+            const closeBtn = document.querySelector('.close-modal');
+            
+            modalTitle.textContent = title;
+            modalBody.innerHTML = `<p>${message}</p>`;
+            
+            modal.style.display = 'block';
+            
+            const closeModal = () => {
+                modal.style.display = 'none';
+            };
+            
+            // Close button
+            closeBtn.onclick = closeModal;
+            
+            // Cancel button
+            cancelBtn.onclick = closeModal;
+            
+            // Confirm button
+            confirmBtn.onclick = () => {
+                onConfirm();
+                closeModal();
+            };
+            
+            // Close on outside click
+            window.onclick = (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            };
+        }
+        
+        // Update token expiry display
+        function updateTokenExpiryDisplay() {
+            const daysRemaining = TokenManager.getDaysUntilExpiry();
+            const expiryText = daysRemaining > 0 ? `${daysRemaining} days` : 'Expired';
+            
+            document.getElementById('token-expiry').textContent = expiryText;
+            document.getElementById('settings-token-expiry').textContent = expiryText;
+        }
+        
+        // Update UI based on authentication status
+        function updateAuthUI() {
+            const isAuthed = TokenManager.isAuthenticated();
+            const username = TokenManager.getUsername() || 'Instagram User';
+            
+            // Update login button
+            const loginBtn = document.getElementById('loginBtn');
+            if (loginBtn) {
+                loginBtn.style.display = isAuthed ? 'none' : 'block';
+            }
+            
+            // Update account info
+            document.getElementById('account-name').textContent = isAuthed ? username : 'Not Connected';
+            document.getElementById('account-status').textContent = isAuthed ? 'Online' : 'Offline';
+            document.getElementById('connection-status').textContent = isAuthed ? 'Connected' : 'Not Connected';
+            document.getElementById('instagram-username').textContent = isAuthed ? username : 'N/A';
+            
+            // Update settings page
+            document.getElementById('settings-connection-status').textContent = isAuthed ? 'Connected' : 'Not Connected';
+            document.getElementById('settings-instagram-username').textContent = isAuthed ? username : 'N/A';
+            
+            // Update token expiry if authenticated
+            if (isAuthed) {
+                updateTokenExpiryDisplay();
+            } else {
+                document.getElementById('token-expiry').textContent = 'N/A';
+                document.getElementById('settings-token-expiry').textContent = 'N/A';
+            }
+            
+            // Enable/disable buttons
+            document.getElementById('disconnect-instagram').disabled = !isAuthed;
+            document.getElementById('delete-data').disabled = !isAuthed;
+            document.getElementById('settings-disconnect').disabled = !isAuthed;
+            document.getElementById('settings-delete').disabled = !isAuthed;
+            
+            // Show/hide features
+            const featureContainers = document.querySelectorAll('.feature-container');
+            featureContainers.forEach(container => {
+                container.style.display = isAuthed ? 'block' : 'none';
+            });
+            
+            // Show/hide connect prompt
+            const connectPrompt = document.getElementById('connect-prompt');
+            if (connectPrompt) {
+                connectPrompt.style.display = isAuthed ? 'none' : 'flex';
+            }
+        }
+        
+        // Handle logout
+        function handleLogout() {
+            showConfirmModal(
+                'Disconnect Account', 
+                'Are you sure you want to disconnect your Instagram account? You will need to reconnect to access your messages.',
+                () => {
+                    TokenManager.logout();
+                    updateAuthUI();
+                    Utils.showNotification('Disconnected from Instagram');
+                }
+            );
+        }
+        
+        // Handle data deletion
+        function handleDeleteData() {
+            showConfirmModal(
+                'Delete Data',
+                'Are you sure you want to delete your data? Your token will be marked as deleted on our servers.',
+                () => {
+                    TokenManager.markAsDeleted()
+                        .then(result => {
+                            if (result.success) {
+                                updateAuthUI();
+                                Utils.showNotification('Your data has been deleted');
+                            } else {
+                                Utils.showNotification('Error deleting data: ' + (result.error || 'Unknown error'), 'error');
+                            }
+                        })
+                        .catch(error => {
+                            Utils.showNotification('Error deleting data: ' + error.message, 'error');
+                        });
+                }
+            );
+        }
+        
         // Initialize page navigation
-        document.addEventListener('DOMContentLoaded', function() {
-            // Page navigation
+        function initNavigation() {
             const navItems = document.querySelectorAll('.nav-item');
             navItems.forEach(item => {
                 item.addEventListener('click', function() {
@@ -193,93 +406,90 @@
                     document.getElementById(`${pageId}-page`).classList.add('active');
                 });
             });
+        }
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize navigation
+            initNavigation();
             
-            // Refresh button
-            const refreshDataBtn = document.getElementById('refresh-data');
-            if (refreshDataBtn) {
-                refreshDataBtn.addEventListener('click', function() {
-                    // Refresh active page data
-                    const activePage = document.querySelector('.page.active');
-                    if (activePage) {
-                        const pageId = activePage.id;
-                        
-                        if (pageId === 'dashboard-page') {
-                            if (typeof Events !== 'undefined') {
-                                Events.fetchEvents();
-                            }
-                        } else if (pageId === 'messages-page') {
-                            if (typeof Conversations !== 'undefined') {
-                                Conversations.fetchConversations();
-                            }
-                        }
-                    }
-                });
-            }
+            // Load user settings
+            loadSettings();
             
-            // Toggle event polling
-            const pollingToggle = document.getElementById('polling-toggle');
-            if (pollingToggle) {
-                pollingToggle.addEventListener('change', function() {
-                    if (this.checked) {
-                        if (typeof Events !== 'undefined') {
-                            Events.startPolling();
-                        }
-                        document.getElementById('polling-status').textContent = 'active';
-                    } else {
-                        if (typeof Events !== 'undefined') {
-                            Events.stopPolling();
-                        }
-                        document.getElementById('polling-status').textContent = 'inactive';
-                    }
-                });
-            }
+            // Update UI based on auth status
+            updateAuthUI();
             
-            // Duplicate auth UI elements
-            const settingsDisconnect = document.getElementById('settings-disconnect');
-            if (settingsDisconnect) {
-                settingsDisconnect.addEventListener('click', function() {
-                    if (confirm('Are you sure you want to disconnect your Instagram account?')) {
-                        Auth.logout();
-                    }
-                });
-            }
-            
-            // Auth state change handler
-            const authStateCheck = setInterval(function() {
-                const isAuthenticated = Auth.isAuthenticated();
-                
-                // Update settings page
-                const settingsConnectionStatus = document.getElementById('settings-connection-status');
-                const settingsUsername = document.getElementById('settings-instagram-username');
-                const settingsDisconnect = document.getElementById('settings-disconnect');
-                
-                if (settingsConnectionStatus) {
-                    settingsConnectionStatus.textContent = isAuthenticated ? 'Connected' : 'Not Connected';
-                }
-                
-                if (settingsUsername && isAuthenticated) {
-                    settingsUsername.textContent = document.getElementById('instagram-username').textContent;
-                }
-                
-                if (settingsDisconnect) {
-                    if (isAuthenticated) {
-                        settingsDisconnect.removeAttribute('disabled');
-                    } else {
-                        settingsDisconnect.setAttribute('disabled', 'disabled');
-                    }
-                }
-                
-                // Show/hide connect prompt on messages page
-                const connectPrompt = document.getElementById('connect-prompt');
-                if (connectPrompt) {
-                    connectPrompt.style.display = isAuthenticated ? 'none' : 'flex';
-                }
-            }, 1000);
-            
-            // Cleanup interval on page unload
-            window.addEventListener('beforeunload', function() {
-                clearInterval(authStateCheck);
+            // Set up event listeners
+            document.getElementById('loginBtn').addEventListener('click', function() {
+                window.location.href = 'auth-form.html';
             });
+            
+            document.getElementById('disconnect-instagram').addEventListener('click', handleLogout);
+            document.getElementById('settings-disconnect').addEventListener('click', handleLogout);
+            
+            document.getElementById('delete-data').addEventListener('click', handleDeleteData);
+            document.getElementById('settings-delete').addEventListener('click', handleDeleteData);
+            
+            document.getElementById('save-settings').addEventListener('click', saveSettings);
+            
+            document.getElementById('polling-toggle').addEventListener('change', function() {
+                if (this.checked) {
+                    if (typeof Events !== 'undefined' && Events.startPolling) {
+                        Events.startPolling();
+                    }
+                    document.getElementById('polling-status').textContent = 'active';
+                } else {
+                    if (typeof Events !== 'undefined' && Events.stopPolling) {
+                        Events.stopPolling();
+                    }
+                    document.getElementById('polling-status').textContent = 'inactive';
+                }
+            });
+            
+            // Set up refresh button
+            document.getElementById('refresh-data').addEventListener('click', function() {
+                if (!TokenManager.isAuthenticated()) {
+                    Utils.showNotification('Please connect your Instagram account', 'error');
+                    return;
+                }
+                
+                this.querySelector('i').classList.add('fa-spin');
+                
+                // Refresh active page data
+                const activePage = document.querySelector('.page.active');
+                if (activePage) {
+                    const pageId = activePage.id;
+                    
+                    if (pageId === 'dashboard-page') {
+                        if (typeof Events !== 'undefined' && Events.fetchEvents) {
+                            Events.fetchEvents();
+                        }
+                    } else if (pageId === 'messages-page') {
+                        if (typeof Conversations !== 'undefined' && Conversations.fetchConversations) {
+                            Conversations.fetchConversations(true);
+                        }
+                    }
+                }
+                
+                // Stop spinning after 1.5 seconds
+                setTimeout(() => {
+                    this.querySelector('i').classList.remove('fa-spin');
+                }, 1500);
+            });
+            
+            // Check for login success URL parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('login_success') === 'true') {
+                const url = new URL(window.location);
+                url.searchParams.delete('login_success');
+                window.history.replaceState({}, document.title, url);
+                
+                updateAuthUI();
+                Utils.showNotification('Successfully connected to Instagram!');
+            }
+            
+            // Set up token expiration check
+            setInterval(updateTokenExpiryDisplay, 60000); // Check every minute
         });
     </script>
 </body>
