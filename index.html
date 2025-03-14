@@ -3,93 +3,284 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instagram Dashboard</title>
-    <link rel="stylesheet" href="dashboard.css">
+    <title>Instagram DM Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Instagram Dashboard</h1>
-        </div>
-        
-        <div class="connect-section">
-            <button id="loginBtn" class="btn primary-btn"><i class="fab fa-instagram"></i> Connect Instagram</button>
-        </div>
-        
-        <div class="status-section">
-            <div class="status-card">
-                <h2>Connection Status</h2>
-                <div class="status-info">
-                    <p>Status: <span id="account-status">Offline</span></p>
-                    <p>Connection: <span id="connection-status">Not Connected</span></p>
-                    <p>Username: <span id="instagram-username">N/A</span></p>
-                </div>
-                <button id="disconnect-instagram" class="btn danger-btn" disabled>Disconnect</button>
-            </div>
-        </div>
-        
-        <!-- Features Section - Initially Hidden -->
-        <div id="features-section" class="features-section" style="display: none;">
-            <div class="feature-tabs">
-                <button id="conversations-tab" class="tab-btn active">Conversations</button>
-                <button id="events-tab" class="tab-btn">Events</button>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>Insta<span>AI</span></h1>
             </div>
             
-            <!-- Conversations Tab Content -->
-            <div id="conversations-content" class="tab-content">
-                <div class="conversations-header">
-                    <h2>Conversations</h2>
-                    <button id="refresh-conversations" class="btn secondary-btn">
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="nav-item active" data-page="dashboard">
+                        <i class="fas fa-chart-line"></i> Dashboard
+                    </li>
+                    <li class="nav-item" data-page="messages">
+                        <i class="fas fa-comments"></i> Messages
+                    </li>
+                    <li class="nav-item" data-page="settings">
+                        <i class="fas fa-cog"></i> Settings
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="account-info">
+                    <div class="account-details">
+                        <span id="account-name">Not Connected</span>
+                        <span id="account-status" class="status">Offline</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <h2 id="page-title">Dashboard</h2>
+                <div class="header-actions">
+                    <button id="loginBtn" class="btn primary-btn">
+                        <i class="fab fa-instagram"></i> Connect Instagram
+                    </button>
+                    <button id="refresh-data" class="btn secondary-btn">
                         <i class="fas fa-sync-alt"></i> Refresh
                     </button>
+                </div>
+            </header>
+            
+            <!-- Dashboard Page -->
+            <div class="page active" id="dashboard-page">
+                <div class="status-card">
+                    <h3>Connection Status</h3>
+                    <div class="status-info">
+                        <p>Status: <span id="connection-status">Not Connected</span></p>
+                        <p>Username: <span id="instagram-username">N/A</span></p>
+                    </div>
+                    <button id="disconnect-instagram" class="btn danger-btn" disabled>Disconnect</button>
                 </div>
                 
-                <div class="conversations-container">
-                    <!-- Conversations List -->
-                    <div class="conversations-list" id="conversations-list">
-                        <div class="loading">Loading conversations...</div>
-                    </div>
-                    
-                    <!-- Conversation Messages -->
-                    <div class="conversation-messages">
-                        <div class="messages-header">
-                            <h3 id="selected-conversation">Select a conversation</h3>
+                <div class="feature-container" style="display: none;">
+                    <div class="card">
+                        <h3>Recent Events</h3>
+                        <div class="card-header-actions">
+                            <button id="refresh-events" class="btn icon-btn">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
                         </div>
-                        <div class="messages-list" id="messages-list">
-                            <div class="empty-state">Select a conversation to view messages</div>
-                        </div>
-                        <div class="message-input-container">
-                            <textarea id="message-input" placeholder="Type a message..." disabled></textarea>
-                            <button id="send-message" class="btn primary-btn" disabled>Send</button>
+                        <div id="events-list" class="events-list">
+                            <p class="empty-state">No recent events</p>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Events Tab Content -->
-            <div id="events-content" class="tab-content" style="display: none;">
-                <div class="events-header">
-                    <h2>Recent Events</h2>
-                    <button id="refresh-events" class="btn secondary-btn">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
+            <!-- Messages Page -->
+            <div class="page" id="messages-page">
+                <div class="feature-container" style="display: none;">
+                    <div class="messages-container">
+                        <div class="conversations-sidebar">
+                            <div class="conversations-header">
+                                <h3>Conversations</h3>
+                                <button id="refresh-conversations" class="btn icon-btn">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <div id="conversations-list" class="conversations-list">
+                                <p class="empty-state">No conversations found</p>
+                            </div>
+                        </div>
+                        
+                        <div class="messages-view">
+                            <div class="messages-header">
+                                <h3 id="current-conversation">Select a conversation</h3>
+                                <p id="conversation-status">No active conversation</p>
+                            </div>
+                            
+                            <div id="messages-list" class="messages-list">
+                                <div class="empty-conversation">
+                                    <i class="fas fa-comments"></i>
+                                    <p>Select a conversation to view messages</p>
+                                </div>
+                            </div>
+                            
+                            <div class="message-input-container">
+                                <textarea id="message-input" placeholder="Type a message..."></textarea>
+                                <button id="send-message" class="btn icon-btn">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="events-list" id="events-list">
-                    <div class="loading">Loading events...</div>
+                
+                <div class="connect-prompt" id="connect-prompt">
+                    <div class="connect-card">
+                        <h3>Connect to Instagram</h3>
+                        <p>Please connect your Instagram account to view messages</p>
+                        <button class="btn primary-btn" onclick="Auth.login()">
+                            <i class="fab fa-instagram"></i> Connect Instagram
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+            
+            <!-- Settings Page -->
+            <div class="page" id="settings-page">
+                <div class="status-card">
+                    <h3>Account Settings</h3>
+                    <div class="status-info">
+                        <p>Connection Status: <span id="settings-connection-status">Not Connected</span></p>
+                        <p>Instagram Username: <span id="settings-instagram-username">N/A</span></p>
+                    </div>
+                    <button id="settings-disconnect" class="btn danger-btn" disabled>Disconnect Account</button>
+                </div>
+                
+                <div class="feature-container" style="display: none;">
+                    <div class="card">
+                        <h3>Event Polling</h3>
+                        <p>Automatically check for new messages and events</p>
+                        <div class="toggle-container">
+                            <label class="toggle">
+                                <input type="checkbox" id="polling-toggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                            <span>Polling is <span id="polling-status">active</span></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
     
-    <div id="debug-panel" class="debug-panel">
-        <div class="debug-header">
-            <h3>Debug Panel</h3>
-            <button id="toggle-debug">Hide</button>
-        </div>
-        <div class="debug-content" id="debug-content"></div>
-    </div>
+    <!-- Load Scripts -->
+    <script src="utils.js"></script>
+    <script src="auth.js"></script>
+    <script src="conversations.js"></script>
+    <script src="messages.js"></script>
+    <script src="events.js"></script>
     
-    <script src="dashboard.js"></script>
+    <script>
+        // Initialize page navigation
+        document.addEventListener('DOMContentLoaded', function() {
+            // Page navigation
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => {
+                item.addEventListener('click', function() {
+                    // Remove active class from all nav items
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    
+                    // Add active class to clicked item
+                    this.classList.add('active');
+                    
+                    // Get page to show
+                    const pageId = this.getAttribute('data-page');
+                    
+                    // Update page title
+                    document.getElementById('page-title').textContent = this.textContent.trim();
+                    
+                    // Hide all pages
+                    document.querySelectorAll('.page').forEach(page => {
+                        page.classList.remove('active');
+                    });
+                    
+                    // Show selected page
+                    document.getElementById(`${pageId}-page`).classList.add('active');
+                });
+            });
+            
+            // Refresh button
+            const refreshDataBtn = document.getElementById('refresh-data');
+            if (refreshDataBtn) {
+                refreshDataBtn.addEventListener('click', function() {
+                    // Refresh active page data
+                    const activePage = document.querySelector('.page.active');
+                    if (activePage) {
+                        const pageId = activePage.id;
+                        
+                        if (pageId === 'dashboard-page') {
+                            if (typeof Events !== 'undefined') {
+                                Events.fetchEvents();
+                            }
+                        } else if (pageId === 'messages-page') {
+                            if (typeof Conversations !== 'undefined') {
+                                Conversations.fetchConversations();
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Toggle event polling
+            const pollingToggle = document.getElementById('polling-toggle');
+            if (pollingToggle) {
+                pollingToggle.addEventListener('change', function() {
+                    if (this.checked) {
+                        if (typeof Events !== 'undefined') {
+                            Events.startPolling();
+                        }
+                        document.getElementById('polling-status').textContent = 'active';
+                    } else {
+                        if (typeof Events !== 'undefined') {
+                            Events.stopPolling();
+                        }
+                        document.getElementById('polling-status').textContent = 'inactive';
+                    }
+                });
+            }
+            
+            // Duplicate auth UI elements
+            const settingsDisconnect = document.getElementById('settings-disconnect');
+            if (settingsDisconnect) {
+                settingsDisconnect.addEventListener('click', function() {
+                    if (confirm('Are you sure you want to disconnect your Instagram account?')) {
+                        Auth.logout();
+                    }
+                });
+            }
+            
+            // Auth state change handler
+            const authStateCheck = setInterval(function() {
+                const isAuthenticated = Auth.isAuthenticated();
+                
+                // Update settings page
+                const settingsConnectionStatus = document.getElementById('settings-connection-status');
+                const settingsUsername = document.getElementById('settings-instagram-username');
+                const settingsDisconnect = document.getElementById('settings-disconnect');
+                
+                if (settingsConnectionStatus) {
+                    settingsConnectionStatus.textContent = isAuthenticated ? 'Connected' : 'Not Connected';
+                }
+                
+                if (settingsUsername && isAuthenticated) {
+                    settingsUsername.textContent = document.getElementById('instagram-username').textContent;
+                }
+                
+                if (settingsDisconnect) {
+                    if (isAuthenticated) {
+                        settingsDisconnect.removeAttribute('disabled');
+                    } else {
+                        settingsDisconnect.setAttribute('disabled', 'disabled');
+                    }
+                }
+                
+                // Show/hide connect prompt on messages page
+                const connectPrompt = document.getElementById('connect-prompt');
+                if (connectPrompt) {
+                    connectPrompt.style.display = isAuthenticated ? 'none' : 'flex';
+                }
+            }, 1000);
+            
+            // Cleanup interval on page unload
+            window.addEventListener('beforeunload', function() {
+                clearInterval(authStateCheck);
+            });
+        });
+    </script>
 </body>
 </html>

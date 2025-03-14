@@ -48,79 +48,127 @@
             background-color: #f8d7da;
             color: #721c24;
         }
+        .debug-info {
+            margin-top: 20px;
+            text-align: left;
+            font-family: monospace;
+            font-size: 12px;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Processing Instagram Connection</h1>
+        <h1>Instagram Connection</h1>
         <div id="loader" class="loader"></div>
-        <p id="status">Authenticating your Instagram account...</p>
+        <p id="status">Processing authentication...</p>
         <div id="message"></div>
+        <div id="debug-info" class="debug-info" style="display: none;"></div>
     </div>
     
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
-            const error = urlParams.get('error');
-            
-            if (error) {
-                showError('Authentication failed: ' + error);
-                return;
-            }
-            
-            if (!code) {
-                showError('No authorization code received');
-                return;
-            }
-            
-            // Exchange code for token
-            fetch('https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: code })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                if (!data.access_token || !data.user_id) {
-                    throw new Error('Invalid response from server');
-                }
-                
-                // Store the token
-                localStorage.setItem('instagram_access_token', data.access_token);
-                localStorage.setItem('instagram_user_id', data.user_id);
-                
-                // Show success and redirect
-                showSuccess('Connected successfully!');
-                setTimeout(() => {
-                    window.location.href = window.location.href.substring(0, window.location.href.lastIndexOf('/')) + '/index.html?login_success=true';
-                }, 2000);
-            })
-            .catch(error => {
-                showError('Error: ' + error.message);
-            });
-        });
+        // API endpoint
+        const EXCHANGE_TOKEN_API = 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token';
         
+        // Log to debug info
+        function logDebug(text) {
+            const debugInfo = document.getElementById('debug-info');
+            debugInfo.style.display = 'block';
+            
+            const logLine = document.createElement('div');
+            logLine.textContent = new Date().toLocaleTimeString() + ': ' + text;
+            debugInfo.appendChild(logLine);
+        }
+        
+        // Show error message
         function showError(message) {
             document.getElementById('loader').style.display = 'none';
-            document.getElementById('status').textContent = 'Connection Failed';
+            document.getElementById('status').textContent = 'Authentication Failed';
             
             const messageDiv = document.getElementById('message');
             messageDiv.className = 'error';
             messageDiv.textContent = message;
         }
         
+        // Show success message
         function showSuccess(message) {
             document.getElementById('loader').style.display = 'none';
-            document.getElementById('status').textContent = 'Connection Successful';
+            document.getElementById('status').textContent = 'Authentication Successful';
             
             const messageDiv = document.getElementById('message');
             messageDiv.className = 'success';
             messageDiv.textContent = message;
         }
+        
+        // Process authentication
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
+            
+            logDebug('URL parameters processed');
+            
+            if (error) {
+                logDebug('Error found: ' + error);
+                showError('Authentication failed: ' + error);
+                return;
+            }
+            
+            if (!code) {
+                logDebug('No authorization code found');
+                showError('No authorization code received');
+                return;
+            }
+            
+            logDebug('Exchanging code for token...');
+            
+            // Exchange code for token
+            fetch(EXCHANGE_TOKEN_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: code })
+            })
+            .then(response => {
+                logDebug('Response status: ' + response.status);
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    logDebug('API error: ' + JSON.stringify(data.error));
+                    throw new Error(data.error);
+                }
+                
+                logDebug('Token received');
+                
+                if (!data.access_token || !data.user_id) {
+                    logDebug('Missing token or user_id in response');
+                    throw new Error('Invalid response from server');
+                }
+                
+                // Store token in localStorage
+                localStorage.setItem('instagram_access_token', data.access_token);
+                localStorage.setItem('instagram_user_id', data.user_id);
+                
+                logDebug('Token stored in localStorage');
+                
+                // Show success message
+                showSuccess('Connected successfully! Redirecting...');
+                
+                // Redirect back to main page
+                logDebug('Redirecting in 2 seconds...');
+                setTimeout(function() {
+                    window.location.href = window.location.href.substring(0, window.location.href.lastIndexOf('/')) + '/index.html?login_success=true';
+                }, 2000);
+            })
+            .catch(error => {
+                logDebug('Error: ' + error.message);
+                showError('Error: ' + error.message);
+            });
+        });
     </script>
 </body>
 </html>
