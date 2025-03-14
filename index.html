@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instagram Connection</title>
+    <title>Instagram Dashboard</title>
     <link rel="stylesheet" href="dashboard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Instagram Connection Demo</h1>
+            <h1>Instagram Dashboard</h1>
         </div>
         
         <div class="connect-section">
@@ -28,6 +28,66 @@
                 <button id="disconnect-instagram" class="btn danger-btn" disabled>Disconnect</button>
             </div>
         </div>
+        
+        <!-- Features Section - Initially Hidden -->
+        <div id="features-section" class="features-section" style="display: none;">
+            <div class="feature-tabs">
+                <button id="conversations-tab" class="tab-btn active">Conversations</button>
+                <button id="events-tab" class="tab-btn">Events</button>
+            </div>
+            
+            <!-- Conversations Tab Content -->
+            <div id="conversations-content" class="tab-content">
+                <div class="conversations-header">
+                    <h2>Conversations</h2>
+                    <button id="refresh-conversations" class="btn secondary-btn">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                
+                <div class="conversations-container">
+                    <!-- Conversations List -->
+                    <div class="conversations-list" id="conversations-list">
+                        <div class="loading">Loading conversations...</div>
+                    </div>
+                    
+                    <!-- Conversation Messages -->
+                    <div class="conversation-messages">
+                        <div class="messages-header">
+                            <h3 id="selected-conversation">Select a conversation</h3>
+                        </div>
+                        <div class="messages-list" id="messages-list">
+                            <div class="empty-state">Select a conversation to view messages</div>
+                        </div>
+                        <div class="message-input-container">
+                            <textarea id="message-input" placeholder="Type a message..." disabled></textarea>
+                            <button id="send-message" class="btn primary-btn" disabled>Send</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Events Tab Content -->
+            <div id="events-content" class="tab-content" style="display: none;">
+                <div class="events-header">
+                    <h2>Recent Events</h2>
+                    <button id="refresh-events" class="btn secondary-btn">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                <div class="events-list" id="events-list">
+                    <div class="loading">Loading events...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="debug-panel" class="debug-panel">
+        <div class="debug-header">
+            <h3>Debug Panel</h3>
+            <button id="toggle-debug">Hide</button>
+        </div>
+        <div class="debug-content" id="debug-content"></div>
     </div>
     
     <script src="dashboard.js"></script>
