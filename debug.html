@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Dashboard - Debug Mode</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f7f7f7;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .header h1 {
+            color: #405DE6;
+        }
+        
+        .debug-badge {
+            background-color: #f39c12;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card h2 {
+            margin-bottom: 15px;
+            color: #405DE6;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .btn {
+            padding: 10px 15px;
+            background-color: #405DE6;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        
+        .btn:hover {
+            background-color: #3951cc;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .danger-btn {
+            background-color: #e74c3c;
+        }
+        
+        .danger-btn:hover {
+            background-color: #c0392b;
+        }
+        
+        .secondary-btn {
+            background-color: #95a5a6;
+        }
+        
+        .secondary-btn:hover {
+            background-color: #7f8c8d;
+        }
+        
+        .storage-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        
+        .storage-table th, .storage-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        
+        .storage-table th {
+            background-color: #f5f5f5;
+        }
+        
+        .token-display {
+            font-family: monospace;
+            word-break: break-all;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .output-container {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 300px;
+            overflow: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+            margin-top: 15px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        
+        .tab.active {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            border-radius: 5px 5px 0 0;
+            font-weight: bold;
+            color: #405DE6;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .status-indicator.online {
+            background-color: #2ecc71;
+        }
+        
+        .status-indicator.offline {
+            background-color: #e74c3c;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #2ecc71;
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            transition: transform 0.3s ease;
+            transform: translateX(120%);
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification.error {
+            background-color: #e74c3c;
+        }
+        
+        .notification.warning {
+            background-color: #f39c12;
+        }
+        
+        #debug-log {
+            margin-top: 20px;
+            height: 500px;
+            overflow: auto;
+            background-color: #1e1e1e;
+            color: #f8f8f8;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        
+        .log-entry {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #444;
+        }
+        
+        .log-entry .timestamp {
+            color: #999;
+            font-size: 12px;
+        }
+        
+        .log-entry .category {
+            color: #f39c12;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .log-entry .message {
+            color: #2ecc71;
+            margin-top: 5px;
+        }
+        
+        .log-entry .data {
+            margin-top: 5px;
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Instagram Dashboard <span class="debug-badge">Debug Mode</span></h1>
+        </div>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="auth">Authentication</div>
+            <div class="tab" data-tab="api">API Testing</div>
+            <div class="tab" data-tab="storage">Storage</div>
+            <div class="tab" data-tab="console">Debug Console</div>
+        </div>
+        
+        <!-- Authentication Tab -->
+        <div class="tab-content active" id="auth-tab">
+            <div class="card">
+                <h2>Authentication Status</h2>
+                <p>
+                    <span id="auth-status-indicator" class="status-indicator offline"></span>
+                    Status: <span id="auth-status">Not authenticated</span>
+                </p>
+                <p>User ID: <span id="user-id">Not available</span></p>
+                <p>Token: <span id="token-preview">Not available</span></p>
+                
+                <div class="btn-group" style="margin-top: 20px;">
+                    <button id="login-btn" class="btn">Connect Instagram</button>
+                    <button id="verify-token-btn" class="btn" disabled>Verify Token</button>
+                    <button id="clear-auth-btn" class="btn danger-btn" disabled>Clear Auth Data</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Authorization Code Testing</h2>
+                <div class="input-group">
+                    <label for="auth-code">Authorization Code</label>
+                    <input type="text" id="auth-code" placeholder="Paste authorization code here">
+                </div>
+                <button id="exchange-code-btn" class="btn">Exchange for Token</button>
+                <div id="exchange-output" class="output-container" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <!-- API Testing Tab -->
+        <div class="tab-content" id="api-tab">
+            <div class="card">
+                <h2>API Endpoints Testing</h2>
+                <div class="btn-group">
+                    <button id="get-conversations-btn" class="btn" disabled>Fetch Conversations</button>
+                    <button id="get-events-btn" class="btn" disabled>Fetch Events</button>
+                </div>
+                
+                <div class="input-group">
+                    <label for="conversation-id">Conversation ID (for messages)</label>
+                    <input type="text" id="conversation-id" placeholder="Enter conversation ID">
+                </div>
+                <button id="get-messages-btn" class="btn" disabled>Fetch Messages</button>
+                
+                <div class="input-group">
+                    <label for="recipient-id">Recipient ID</label>
+                    <input type="text" id="recipient-id" placeholder="Enter recipient ID">
+                </div>
+                <div class="input-group">
+                    <label for="message-text">Message Text</label>
+                    <input type="text" id="message-text" placeholder="Enter message to send">
+                </div>
+                <button id="send-message-btn" class="btn" disabled>Send Message</button>
+                
+                <div id="api-output" class="output-container" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <!-- Storage Tab -->
+        <div class="tab-content" id="storage-tab">
+            <div class="card">
+                <h2>Local Storage</h2>
+                <table class="storage-table">
+                    <thead>
+                        <tr>
+                            <th>Key</th>
+                            <th>Value</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="local-storage-items">
+                        <tr>
+                            <td colspan="3">No items found</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button id="refresh-storage-btn" class="btn">Refresh Storage</button>
+                <button id="clear-storage-btn" class="btn danger-btn">Clear All Storage</button>
+            </div>
+            
+            <div class="card">
+                <h2>Add/Edit Storage Item</h2>
+                <div class="input-group">
+                    <label for="storage-key">Key</label>
+                    <input type="text" id="storage-key" placeholder="Enter key">
+                </div>
+                <div class="input-group">
+                    <label for="storage-value">Value</label>
+                    <input type="text" id="storage-value" placeholder="Enter value">
+                </div>
+                <button id="set-storage-btn" class="btn">Set Storage Item</button>
+            </div>
+        </div>
+        
+        <!-- Debug Console Tab -->
+        <div class="tab-content" id="console-tab">
+            <div class="card">
+                <h2>Debug Console</h2>
+                <div class="btn-group">
+                    <button id="clear-log-btn" class="btn secondary-btn">Clear Log</button>
+                    <button id="save-log-btn" class="btn">Save Log</button>
+                </div>
+                <div id="debug-log"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Utility functions
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+        
+        function logDebug(category, message, data) {
+            const logContainer = document.getElementById('debug-log');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            
+            const timestamp = document.createElement('span');
+            timestamp.className = 'timestamp';
+            timestamp.textContent = new Date().toLocaleTimeString();
+            
+            const categorySpan = document.createElement('span');
+            categorySpan.className = 'category';
+            categorySpan.textContent = category;
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.textContent = message;
+            
+            logEntry.appendChild(timestamp);
+            logEntry.appendChild(categorySpan);
+            logEntry.appendChild(messageDiv);
+            
+            if (data) {
+                const dataDiv = document.createElement('div');
+                dataDiv.className = 'data';
+                
+                if (typeof data === 'object') {
+                    // Handle token masking for security
+                    const displayData = JSON.parse(JSON.stringify(data));
+                    if (displayData.access_token) {
+                        displayData.access_token = displayData.access_token.substring(0, 5) + '...' + 
+                            displayData.access_token.substring(displayData.access_token.length - 5);
+                    }
+                    
+                    dataDiv.textContent = JSON.stringify(displayData, null, 2);
+                } else {
+                    dataDiv.textContent = data;
+                }
+                
+                logEntry.appendChild(dataDiv);
+            }
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        
+        function updateAuthStatus() {
+            const accessToken = localStorage.getItem('instagram_access_token');
+            const userId = localStorage.getItem('instagram_user_id');
+            
+            const authStatusIndicator = document.getElementById('auth-status-indicator');
+            const authStatus = document.getElementById('auth-status');
+            const userIdElement = document.getElementById('user-id');
+            const tokenPreview = document.getElementById('token-preview');
+            
+            if (accessToken && userId) {
+                authStatusIndicator.className = 'status-indicator online';
+                authStatus.textContent = 'Authenticated';
+                userIdElement.textContent = userId;
+                tokenPreview.textContent = accessToken.substring(0, 5) + '...' + accessToken.substring(accessToken.length - 5);
+                
+                document.getElementById('verify-token-btn').disabled = false;
+                document.getElementById('clear-auth-btn').disabled = false;
+                document.getElementById('get-conversations-btn').disabled = false;
+                document.getElementById('get-events-btn').disabled = false;
+                document.getElementById('get-messages-btn').disabled = false;
+                document.getElementById('send-message-btn').disabled = false;
+            } else {
+                authStatusIndicator.className = 'status-indicator offline';
+                authStatus.textContent = 'Not authenticated';
+                userIdElement.textContent = 'Not available';
+                tokenPreview.textContent = 'Not available';
+                
+                document.getElementById('verify-token-btn').disabled = true;
+                document.getElementById('clear-auth-btn').disabled = true;
+                document.getElementById('get-conversations-btn').disabled = true;
+                document.getElementById('get-events-btn').disabled = true;
+                document.getElementById('get-messages-btn').disabled = true;
+                document.getElementById('send-message-btn').disabled = true;
+            }
+        }
+        
+        function updateStorageTable() {
+            const tbody = document.getElementById('local-storage-items');
+            tbody.innerHTML = '';
+            
+            let isEmpty = true;
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                let value = localStorage.getItem(key);
+                
+                // Mask token for security
+                if (key === 'instagram_access_token' && value) {
+                    value = value.substring(0, 5) + '...' + value.substring(value.length - 5);
+                }
+                
+                const row = document.createElement('tr');
+                
+                const keyCell = document.createElement('td');
+                keyCell.textContent = key;
+                
+                const valueCell = document.createElement('td');
+                valueCell.className = 'token-display';
+                valueCell.textContent = value;
+                
+                const actionsCell = document.createElement('td');
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'btn danger-btn';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.onclick = function() {
+                    localStorage.removeItem(key);
+                    updateStorageTable();
+                    updateAuthStatus();
+                    showNotification(`Removed "${key}" from local storage`);
+                };
+                
+                actionsCell.appendChild(deleteBtn);
+                
+                row.appendChild(keyCell);
+                row.appendChild(valueCell);
+                row.appendChild(actionsCell);
+                
+                tbody.appendChild(row);
+                isEmpty = false;
+            }
+            
+            if (isEmpty) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 3;
+                cell.textContent = 'No items found';
+                row.appendChild(cell);
+                tbody.appendChild(row);
+            }
+        }
+        
+        function verifyToken() {
+            const token = localStorage.getItem('instagram_access_token');
+            
+            if (!token) {
+                showNotification('No token found', 'error');
+                return;
+            }
+            
+            logDebug('TOKEN', 'Verifying token', { tokenPrefix: token.substring(0, 5) });
+            
+            fetch(`https://graph.instagram.com/v22.0/me?fields=user_id,username&access_token=${token}`)
+                .then(response => {
+                    logDebug('TOKEN', 'Verification response', { 
+                        status: response.status,
+                        statusText: response.statusText
+                    });
+                    return response.json();
+                })
+                .then(data => {
+                    logDebug('TOKEN', 'Verification data', data);
+                    
+                    if (data.error) {
+                        showNotification('Token is invalid: ' + data.error.message, 'error');
+                    } else {
+                        showNotification('Token is valid!');
+                        
+                        if (data.user_id && data.user_id !== localStorage.getItem('instagram_user_id')) {
+                            localStorage.setItem('instagram_user_id', data.user_id);
+                            updateAuthStatus();
+                            showNotification('Updated user ID in storage');
+                        }
+                    }
+                })
+                .catch(error => {
+                    logDebug('TOKEN', 'Verification error', { message: error.message });
+                    showNotification('Error verifying token: ' + error.message, 'error');
+                });
+        }
+        
+        function exchangeCode() {
+            const code = document.getElementById('auth-code').value.trim();
+            
+            if (!code) {
+                showNotification('Please enter an authorization code', 'error');
+                return;
+            }
+            
+            const output = document.getElementById('exchange-output');
+            output.style.display = 'block';
+            output.innerHTML = 'Exchanging code for token...';
+            
+            logDebug('AUTH', 'Exchanging code for token', { codePrefix: code.substring(0, 5) + '...' });
+            
+            fetch('https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ code: code })
+            })
+            .then(response => {
+                logDebug('AUTH', 'Exchange response', { 
+                    status: response.status,
+                    statusText: response.statusText
+                });
+                return response.json();
+            })
+            .then(data => {
+                logDebug('AUTH', 'Exchange data', data);
+                
+                if (data.error) {
+                    output.innerHTML = `Error: ${JSON.stringify(data.error, null, 2)}`;
+                    showNotification('Error exchanging code: ' + data.error, 'error');
+                } else if (data.access_token && data.user_id) {
+                    // Mask token for display
+                    const displayData = { ...data };
+                    displayData.access_token = displayData.access_token.substring(0, 5) + '...' + 
+                        displayData.access_token.substring(displayData.access_token.length - 5);
+                    
+                    output.innerHTML = `Success! Token received:\n${JSON.stringify(displayData, null, 2)}`;
+                    
+                    // Store token
+                    localStorage.setItem('instagram_access_token', data.access_token);
+                    localStorage.setItem('instagram_user_id', data.user_id);
+                    
+                    updateAuthStatus();
+                    updateStorageTable();
+                    showNotification('Token stored successfully!');
+                    
+                    // Store in backend
+                    storeTokenInBackend(data.access_token, data.user_id);
+                } else {
+                    output.innerHTML = `Invalid response: ${JSON.stringify(data, null, 2)}`;
+                    showNotification('Invalid response from server', 'error');
+                }
+            })
+            .catch(error => {
+                logDebug('AUTH', 'Exchange error', { message: error.message });
+                output.innerHTML = `Error: ${error.message}`;
+                showNotification('Error: ' + error.message, 'error');
+            });
+        }
+        
+        function storeTokenInBackend(token, userId) {
+            if (!token || !userId) {
+                logDebug('BACKEND', 'Store token failed', { reason: 'Missing token or userId' });
+                return;
+            }
+            
+            logDebug('BACKEND', 'Storing token', { userId, tokenPrefix: token.substring(0, 5) + '...' });
+            
+            fetch('https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/store-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    access_token: token,
+                    user_id: userId,
+                    token_type: 'long_lived'
+                })
+            })
+            .then(response => {
+                logDebug('BACKEND', 'Store response', { 
+                    status: response.status,
+                    statusText: response.statusText
+                });
+                return response.json();
+            })
+            .then(data => {
+                logDebug('BACKEND', 'Store result', data);
+                
+                if (data.error) {
+                    showNotification('Error storing token in backend: ' + data.error, 'warning');
+                } else {
+                    showNotification('Token stored successfully in backend!');
+                }
+            })
+            .catch(error => {
+                logDebug('BACKEND', 'Store error', { message: error.message });
+                showNotification('Error storing token in backend: ' + error.message, 'warning');
+            });
+        }
+        
+        function fetchConversations() {
+            const userId = localStorage.getItem('instagram_user_id');
+            
+            if (!userId) {
+                showNotification('No user ID found', 'error');
+                return;
+            }
+            
+            const output = document.getElementById('api-output');
+            output.style.display = 'block';
+            output.innerHTML = 'Fetching conversations...';
+            
+            logDebug('API', 'Fetching conversations', { userId });
+            
+            fetch(`https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-conversations?user_id=${userId}`)
+                .then(response => {
+                    logDebug('API', 'Conversations response', { 
+                        status: response.status,
+                        statusText: response.statusText
+                    });
+                    return response.json();
+                })
+                .then(data => {
+                    logDebug('API', 'Conversations data', data);
+                    
+                    if (data.error) {
+                        output.innerHTML = `Error: ${JSON.stringify(data.error, null, 2)}`;
+                        showNotification('Error fetching conversations: ' + data.error, 'error');
+                    } else {
+                        output.innerHTML = `Conversations: ${JSON.stringify(data, null, 2)}`;
+                        showNotification(`Fetched ${data.data?.length || 0} conversations`);
+                        
+                        // If we have conversation IDs, populate the dropdown
+                        if (data.data && data.data.length > 0) {
+                            document.getElementById('conversation-id').value = data.data[0].id;
+                        }
+                    }
+                })
+                .catch(error => {
+                    logDebug('API', 'Conversations error', { message: error.message });
+                    output.innerHTML = `Error: ${error.message}`;
+                    showNotification('Error: ' + error.message, 'error');
+                });
+        }
+        
+        function fetchMessages() {
+            const userId = localStorage.getItem('instagram_user_id');
+            const conversationId = document.getElementById('conversation-id').value.trim();
+            
+            if (!userId) {
+                showNotification('No user ID found', 'error');
+                return;
+            }
+            
+            if (!conversationId) {
+                showNotification('Please enter a conversation ID', 'error');
+                return;
+            }
+            
+            const output = document.getElementById('api-output');
+            output.style.display = 'block';
+            output.innerHTML = 'Fetching messages...';
+            
+            logDebug('API', 'Fetching messages', { userId, conversationId });
+            
+            fetch(`https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-messages?user_id=${userId}&conversation_id=${conversationId}`)
+                .then(response => {
+                    logDebug('API', 'Messages response', { 
+                        status: response.status,
+                        statusText: response.statusText
+                    });
+                    return response.json();
+                })
+                .then(data => {
+                    logDebug('API', 'Messages data', data);
+                    
+                    if (data.error) {
+                        output.innerHTML = `Error: ${JSON.stringify(data.error, null, 2)}`;
+                        showNotification('Error fetching messages: ' + data.error, 'error');
+                    } else {
+                        output.innerHTML = `Messages: ${JSON.stringify(data, null, 2)}`;
+                        showNotification(`Fetched ${data.messages?.data?.length || 0} messages`);
+                    }
+                })
+                .catch(error => {
+                    logDebug('API', 'Messages error', { message: error.message });
+                    output.innerHTML = `Error: ${error.message}`;
+                    showNotification('Error: ' + error.message, 'error');
+                });
+        }
+        
+        function fetchEvents() {
+            const userId = localStorage.getItem('instagram_user_id');
+            
+            if (!userId) {
+                showNotification('No user ID found', 'error');
+                return;
+            }
+            
+            const output = document.getElementById('api-output');
+            output.style.display = 'block';
+            output.innerHTML = 'Fetching events...';
+            
+            logDebug('API', 'Fetching events', { userId });
+            
+            fetch(`https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-events?user_id=${userId}&last_minutes=60`)
+                .then(response => {
+                    logDebug('API', 'Events response', { 
+                        status: response.status,
+                        statusText: response.statusText
+                    });
+                    return response.json();
+                })
+                .then(data => {
+                    logDebug('API', 'Events data', data);
+                    
+                    if (data.error) {
+                        output.innerHTML = `Error: ${JSON.stringify(data.error, null, 2)}`;
+                        showNotification('Error fetching events: ' + data.error, 'error');
+                    } else {
+                        output.innerHTML = `Events: ${JSON.stringify(data, null, 2)}`;
+                        showNotification(`Fetched ${data.events?.length || 0} events`);
+                    }
+                })
+                .catch(error => {
+                    logDebug('API', 'Events error', { message: error.message });
+                    output.innerHTML = `Error: ${error.message}`;
+                    showNotification('Error: ' + error.message, 'error');
+                });
+        }
+        
+        function sendMessage() {
+            const userId = localStorage.getItem('instagram_user_id');
+            const recipientId = document.getElementById('recipient-id').value.trim();
+            const messageText = document.getElementById('message-text').value.trim();
+            
+            if (!userId) {
+                showNotification('No user ID found', 'error');
+                return;
+            }
+            
+            if (!recipientId) {
+                showNotification('Please enter a recipient ID', 'error');
+                return;
+            }
+            
+            if (!messageText) {
+                showNotification('Please enter a message', 'error');
+                return;
+            }
+            
+            const output = document.getElementById('api-output');
+            output.style.display = 'block';
+            output.innerHTML = 'Sending message...';
+            
+            logDebug('API', 'Sending message', { userId, recipientId, messageText });
+            
+            fetch('https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/send-message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    recipient_id: recipientId,
+                    message: messageText
+                })
+            })
+            .then(response => {
+                logDebug('API', 'Send message response', { 
+                    status: response.status,
+                    statusText: response.statusText
+                });
+                return response.json();
+            })
+            .then(data => {
+                logDebug('API', 'Send message data', data);
+                
+                if (data.error) {
+                    output.innerHTML = `Error: ${JSON.stringify(data.error, null, 2)}`;
+                    showNotification('Error sending message: ' + data.error, 'error');
+                } else {
+                    output.innerHTML = `Message sent: ${JSON.stringify(data, null, 2)}`;
+                    showNotification('Message sent successfully!');
+                }
+            })
+            .catch(error => {
+                logDebug('API', 'Send message error', { message: error.message });
+                output.innerHTML = `Error: ${error.message}`;
+                showNotification('Error: ' + error.message, 'error');
+            });
+        }
+        
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Update auth status
+            updateAuthStatus();
+            
+            // Update storage table
+            updateStorageTable();
+            
+            // Set up tabs
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    const tabContents = document.querySelectorAll('.tab-content');
+                    tabContents.forEach(content => content.classList.remove('active'));
+                    
+                    document.getElementById(`${this.getAttribute('data-tab')}-tab`).classList.add('active');
+                });
+            });
+            
+            // Set up event listeners
+            document.getElementById('login-btn').addEventListener('click', function() {
+                const oauthUrl = "https://www.instagram.com/oauth/authorize" + 
+                    "?enable_fb_login=0" +
+                    "&force_authentication=1" +
+                    "&client_id=2388890974807228" +
+                    "&redirect_uri=https://nikhilbharadwajreddy.github.io/InstaAI/insta_redirect.html" +
+                    "&response_type=code" +
+                    "&scope=instagram_business_basic%2Cinstagram_business_manage_messages%2Cinstagram_business_manage_comments%2Cinstagram_business_content_publish%2Cinstagram_business_manage_insights";
+                
+                window.location.href = oauthUrl;
+            });
+            
+            document.getElementById('verify-token-btn').addEventListener('click', verifyToken);
+            
+            document.getElementById('clear-auth-btn').addEventListener('click', function() {
+                localStorage.removeItem('instagram_access_token');
+                localStorage.removeItem('instagram_user_id');
+                updateAuthStatus();
+                updateStorageTable();
+                showNotification('Authentication data cleared');
+            });
+            
+            document.getElementById('exchange-code-btn').addEventListener('click', exchangeCode);
+            
+            document.getElementById('get-conversations-btn').addEventListener('click', fetchConversations);
+            document.getElementById('get-messages-btn').addEventListener('click', fetchMessages);
+            document.getElementById('get-events-btn').addEventListener('click', fetchEvents);
+            document.getElementById('send-message-btn').addEventListener('click', sendMessage);
+            
+            document.getElementById('refresh-storage-btn').addEventListener('click', function() {
+                updateStorageTable();
+                showNotification('Storage refreshed');
+            });
+            
+            document.getElementById('clear-storage-btn').addEventListener('click', function() {
+                if (confirm('Are you sure you want to clear all local storage?')) {
+                    localStorage.clear();
+                    updateStorageTable();
+                    updateAuthStatus();
+                    showNotification('Local storage cleared');
+                }
+            });
+            
+            document.getElementById('set-storage-btn').addEventListener('click', function() {
+                const key = document.getElementById('storage-key').value.trim();
+                const value = document.getElementById('storage-value').value.trim();
+                
+                if (!key) {
+                    showNotification('Please enter a key', 'error');
+                    return;
+                }
+                
+                localStorage.setItem(key, value);
+                updateStorageTable();
+                showNotification(`Storage item "${key}" set successfully`);
+                
+                if (key === 'instagram_access_token' || key === 'instagram_user_id') {
+                    updateAuthStatus();
+                }
+            });
+            
+            document.getElementById('clear-log-btn').addEventListener('click', function() {
+                document.getElementById('debug-log').innerHTML = '';
+                showNotification('Debug log cleared');
+            });
+            
+            document.getElementById('save-log-btn').addEventListener('click', function() {
+                const log = document.getElementById('debug-log').innerText;
+                const blob = new Blob([log], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `instagram-debug-log-${new Date().toISOString().split('T')[0]}.txt`;
+                a.click();
+                
+                URL.revokeObjectURL(url);
+                showNotification('Debug log saved');
+            });
+            
+            // Check for URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            
+            if (code) {
+                // Clean URL
+                history.replaceState({}, document.title, window.location.pathname);
+                
+                // Fill code field
+                document.getElementById('auth-code').value = code;
+                
+                // Show notification
+                showNotification('Authorization code detected in URL. Click "Exchange for Token" to proceed.');
+                
+                // Switch to auth tab
+                tabs.forEach(t => t.classList.remove('active'));
+                document.querySelector('.tab[data-tab="auth"]').classList.add('active');
+                
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                document.getElementById('auth-tab').classList.add('active');
+            }
+            
+            // Initial log message
+            logDebug('SYSTEM', 'Debug page initialized', {
+                timestamp: new Date().toISOString(),
+                localStorage: localStorage.length + ' items',
+                authenticated: !!localStorage.getItem('instagram_access_token')
+            });
+        });
+    </script>
+</body>
+</html>
