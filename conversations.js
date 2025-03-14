@@ -1,4 +1,4 @@
-// conversations.js - Instagram Conversations Module (Debug Version)
+// optimized-conversations.js - Better Performance for Instagram Conversations
 const Conversations = (function() {
     // API endpoints
     const API = {
@@ -8,82 +8,179 @@ const Conversations = (function() {
     // Private state
     let conversations = [];
     let activeConversationId = null;
+    let isLoading = false;
+    let lastLoadTime = null;
     
-    // Private methods
+    // Cached DOM elements
+    let cachedContainer = null;
+    let cachedHeader = null;
+    let cachedStatus = null;
+    
+    // Optimization: Get DOM element once and cache it
+    function getElement(id) {
+        return document.getElementById(id);
+    }
+    
+    // Optimization: Virtual rendering for conversations
     function displayConversations(conversationsList) {
-        const container = document.getElementById('conversations-list');
-        if (!container) return;
+        if (!cachedContainer) {
+            cachedContainer = getElement('conversations-list');
+        }
+        
+        if (!cachedContainer) return;
         
         // Clear container
-        container.innerHTML = '';
+        cachedContainer.innerHTML = '';
         
         if (!conversationsList || conversationsList.length === 0) {
-            container.innerHTML = '<p class="empty-state">No conversations found</p>';
+            cachedContainer.innerHTML = '<p class="empty-state">No conversations found</p>';
             return;
         }
         
-        // Create conversation items
-        conversationsList.forEach(conversation => {
-            const conversationItem = Utils.createElement('div', {
-                className: 'conversation-item',
-                'data-conversation-id': conversation.id
-            });
-            
-            // Find other participant
-            const otherParticipant = conversation.participants?.data?.find(p => 
-                p.id !== Auth.getUserId()
-            ) || { username: 'Instagram User', profile_pic_url: 'https://via.placeholder.com/40' };
-            
-            // Format timestamp
-            const timestamp = conversation.updated_time ? 
-                Utils.formatTimestamp(conversation.updated_time) : '';
-            
-            // Create avatar
-            const avatar = Utils.createElement('img', {
-                src: otherParticipant.profile_pic_url || 'https://via.placeholder.com/40',
-                alt: otherParticipant.username,
-                className: 'conversation-avatar'
-            });
-            
-            // Create details
-            const details = Utils.createElement('div', { className: 'conversation-details' }, [
-                Utils.createElement('div', { className: 'conversation-name' }, [otherParticipant.username]),
-                Utils.createElement('div', { className: 'conversation-preview' }, ['View conversation'])
-            ]);
-            
-            // Create meta info
-            const meta = Utils.createElement('div', { className: 'conversation-meta' }, [
-                Utils.createElement('div', { className: 'conversation-time' }, [timestamp])
-            ]);
-            
-            // Add all elements to conversation item
-            conversationItem.appendChild(avatar);
-            conversationItem.appendChild(details);
-            conversationItem.appendChild(meta);
-            
-            // Add click event
-            conversationItem.addEventListener('click', function() {
-                // Set active class
-                document.querySelectorAll('.conversation-item').forEach(item => {
-                    item.classList.remove('active');
-                });
-                this.classList.add('active');
-                
-                // Set active conversation
-                const conversationId = this.getAttribute('data-conversation-id');
-                setActiveConversation(conversationId);
-                
-                // Load messages for this conversation
-                if (typeof Messages !== 'undefined') {
-                    Messages.loadMessages(conversationId);
-                }
-            });
-            
-            // Add to container
-            container.appendChild(conversationItem);
-        });
+        // Only render visible conversations initially (virtual rendering)
+        // Calculate how many conversations can fit in the container
+        const containerHeight = cachedContainer.clientHeight;
+        const itemHeight = 70; // Approximate height of each conversation item in pixels
+        const visibleItemCount = Math.ceil(containerHeight / itemHeight) + 2; // Add buffer
+        
+        // Create a document fragment for better performance
+        const fragment = document.createDocumentFragment();
+        
+        // Create the container for virtually rendered items
+        const virtualContainer = document.createElement('div');
+        virtualContainer.style.position = 'relative';
+        virtualContainer.style.minHeight = `${conversationsList.length * itemHeight}px`;
+        
+        // Render only the visible items initially
+        for (let i = 0; i < Math.min(visibleItemCount, conversationsList.length); i++) {
+            const conversation = conversationsList[i];
+            const conversationItem = createConversationItem(conversation, i * itemHeight);
+            virtualContainer.appendChild(conversationItem);
+        }
+        
+        fragment.appendChild(virtualContainer);
+        cachedContainer.appendChild(fragment);
+        
+        // Setup scroll listener for lazy loading more items
+        cachedContainer.onscroll = throttle(function() {
+            handleConversationScroll(conversationsList, virtualContainer, itemHeight);
+        }, 100);
     }
     
+    // Throttle function to limit scroll event firing
+    function throttle(func, limit) {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
+    }
+    
+    // Handle scroll events to load more conversations
+    function handleConversationScroll(conversationsList, container, itemHeight) {
+        const listElement = cachedContainer;
+        const scrollTop = listElement.scrollTop;
+        const clientHeight = listElement.clientHeight;
+        
+        // Calculate which items should be visible
+        const startIndex = Math.floor(scrollTop / itemHeight);
+        const endIndex = Math.ceil((scrollTop + clientHeight) / itemHeight);
+        
+        // Buffer size (render extra items above and below)
+        const buffer = 2;
+        const renderStartIndex = Math.max(0, startIndex - buffer);
+        const renderEndIndex = Math.min(conversationsList.length, endIndex + buffer);
+        
+        // Check which items are already rendered
+        const renderedItems = container.querySelectorAll('.conversation-item');
+        const renderedIndexes = Array.from(renderedItems).map(item => 
+            parseInt(item.getAttribute('data-index'), 10)
+        );
+        
+        // Render new items that should be visible but aren't yet
+        for (let i = renderStartIndex; i < renderEndIndex; i++) {
+            if (!renderedIndexes.includes(i)) {
+                const conversation = conversationsList[i];
+                const conversationItem = createConversationItem(conversation, i * itemHeight);
+                container.appendChild(conversationItem);
+            }
+        }
+        
+        // Optionally, remove items that are far out of view to save memory
+        for (let i = 0; i < renderedItems.length; i++) {
+            const item = renderedItems[i];
+            const index = parseInt(item.getAttribute('data-index'), 10);
+            if (index < renderStartIndex - buffer * 2 || index > renderEndIndex + buffer * 2) {
+                item.remove();
+            }
+        }
+    }
+    
+    // Create a conversation item element
+    function createConversationItem(conversation, topPosition) {
+        // Create conversation item
+        const conversationItem = document.createElement('div');
+        conversationItem.className = 'conversation-item';
+        conversationItem.setAttribute('data-conversation-id', conversation.id);
+        conversationItem.setAttribute('data-index', conversation._index || 0);
+        
+        // For virtual scrolling, position absolutely
+        if (topPosition !== undefined) {
+            conversationItem.style.position = 'absolute';
+            conversationItem.style.top = `${topPosition}px`;
+            conversationItem.style.width = '100%';
+        }
+        
+        // Find other participant
+        const otherParticipant = conversation.participants?.data?.find(p => 
+            p.id !== TokenManager.getUserId()
+        ) || { username: 'Instagram User', profile_pic_url: 'https://via.placeholder.com/40' };
+        
+        // Format timestamp
+        const timestamp = conversation.updated_time ? 
+            Utils.formatTimestamp(conversation.updated_time) : '';
+        
+        // Create HTML efficiently with template literals
+        conversationItem.innerHTML = `
+            <img src="${otherParticipant.profile_pic_url || 'https://via.placeholder.com/40'}" 
+                 alt="${otherParticipant.username}" 
+                 class="conversation-avatar">
+            <div class="conversation-details">
+                <div class="conversation-name">${otherParticipant.username}</div>
+                <div class="conversation-preview">View conversation</div>
+            </div>
+            <div class="conversation-meta">
+                <div class="conversation-time">${timestamp}</div>
+            </div>
+        `;
+        
+        // Add click event
+        conversationItem.addEventListener('click', function() {
+            // Set active class
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            this.classList.add('active');
+            
+            // Set active conversation
+            const conversationId = this.getAttribute('data-conversation-id');
+            setActiveConversation(conversationId);
+            
+            // Load messages for this conversation
+            if (typeof Messages !== 'undefined' && Messages.loadMessages) {
+                Messages.loadMessages(conversationId);
+            }
+        });
+        
+        return conversationItem;
+    }
+    
+    // Set active conversation
     function setActiveConversation(conversationId) {
         activeConversationId = conversationId;
         
@@ -93,15 +190,23 @@ const Conversations = (function() {
         
         // Find other participant
         const otherParticipant = conversation.participants?.data?.find(p => 
-            p.id !== Auth.getUserId()
+            p.id !== TokenManager.getUserId()
         ) || { username: 'Instagram User' };
         
-        // Update header
-        const header = document.getElementById('current-conversation');
-        if (header) header.textContent = otherParticipant.username;
+        // Update header (with cached element references)
+        if (!cachedHeader) {
+            cachedHeader = getElement('current-conversation');
+        }
+        if (cachedHeader) {
+            cachedHeader.textContent = otherParticipant.username;
+        }
         
-        const status = document.getElementById('conversation-status');
-        if (status) status.textContent = 'Active';
+        if (!cachedStatus) {
+            cachedStatus = getElement('conversation-status');
+        }
+        if (cachedStatus) {
+            cachedStatus.textContent = 'Active';
+        }
     }
     
     // Public methods
@@ -126,227 +231,123 @@ const Conversations = (function() {
             setActiveConversation(conversationId);
         },
         
-        // Log debug info
-        logDebugInfo: function(title, data) {
-            console.group(`📢 DEBUG: ${title}`);
-            console.log(data);
-            console.groupEnd();
+        // Fetch conversations from API with performance improvements
+        fetchConversations: function(force = false) {
+            // Skip if already loading
+            if (isLoading) return Promise.resolve(conversations);
             
-            // Display debug on page if debug container exists
-            const debugContainer = document.getElementById('debug-container');
-            if (debugContainer) {
-                const debugEntry = document.createElement('div');
-                debugEntry.className = 'debug-entry';
-                
-                const debugTitle = document.createElement('h4');
-                debugTitle.textContent = title;
-                
-                const debugContent = document.createElement('pre');
-                debugContent.textContent = typeof data === 'object' ? 
-                    JSON.stringify(data, null, 2) : String(data);
-                
-                debugEntry.appendChild(debugTitle);
-                debugEntry.appendChild(debugContent);
-                
-                debugContainer.appendChild(debugEntry);
-                debugContainer.scrollTop = debugContainer.scrollHeight;
+            // Check if we need to reload or can use cached data
+            const now = Date.now();
+            if (!force && lastLoadTime && (now - lastLoadTime < 30000) && conversations.length > 0) {
+                return Promise.resolve(conversations);
             }
-        },
-        
-        // Fetch conversations from API (with additional error details)
-        fetchConversations: function() {
-            // Check authentication
-            if (!Auth.isAuthenticated()) {
+            
+            // Check if authenticated
+            if (!TokenManager.isAuthenticated()) {
                 console.error('User not authenticated');
                 return Promise.reject('User not authenticated');
             }
             
-            const userId = Auth.getUserId();
-            
-            // Check if we have a valid user ID
-            if (!userId) {
-                this.logDebugInfo('Missing User ID', 'Auth.getUserId() returned empty value');
-                Utils.showNotification('Missing User ID', 'error');
-                return Promise.reject('Missing User ID');
-            }
-            
-            this.logDebugInfo('Fetching Conversations', {
-                userId: userId,
-                endpoint: API.getConversations,
-                url: `${API.getConversations}?user_id=${userId}`,
-                token: Auth.getAccessToken() ? 'Present (hidden)' : 'Missing'
-            });
-            
-            // Show loading state
+            // Set loading state
+            isLoading = true;
             Utils.showLoading('conversations-list');
             
-            // Make the API request with more verbose error handling
-            return fetch(`${API.getConversations}?user_id=${userId}`)
+            // Make API request
+            return fetch(`${API.getConversations}?user_id=${TokenManager.getUserId()}`)
                 .then(response => {
-                    // Log response status
-                    this.logDebugInfo('API Response Status', {
-                        status: response.status,
-                        statusText: response.statusText,
-                        ok: response.ok
-                    });
-                    
-                    // Parse the JSON response
-                    return response.json().then(data => {
-                        return { status: response.status, data: data };
-                    });
+                    // Check for session timeout
+                    if (response.status === 401) {
+                        TokenManager.logout();
+                        location.reload();
+                        throw new Error('Session expired. Please log in again.');
+                    }
+                    return response.json();
                 })
-                .then(({ status, data }) => {
-                    // Hide loading indicator
+                .then(data => {
+                    // Clear loading state
+                    isLoading = false;
+                    lastLoadTime = Date.now();
                     Utils.hideLoading('conversations-list');
                     
-                    // Log the full response for debugging
-                    this.logDebugInfo('API Response Data', data);
-                    
-                    // Handle error in response
                     if (data.error) {
-                        const errorMsg = data.error.message || data.error;
-                        this.logDebugInfo('API Error', {
-                            error: errorMsg,
-                            status: status,
-                            code: data.error_code || 'unknown'
-                        });
-                        
-                        // Show error message
-                        Utils.showNotification(`Error: ${errorMsg}`, 'error');
+                        console.error('Error fetching conversations:', data.error);
+                        Utils.showNotification('Error fetching conversations', 'error');
                         return [];
                     }
                     
                     // Extract conversations from response
                     if (data.data && Array.isArray(data.data)) {
-                        conversations = data.data;
-                        
-                        // Log success
-                        this.logDebugInfo('Conversations Loaded', {
-                            count: conversations.length
+                        // Add index for virtual scrolling
+                        conversations = data.data.map((conv, index) => {
+                            conv._index = index;  // Add index for virtual scrolling
+                            return conv;
                         });
                         
-                        // Display conversations
+                        // Display conversations with virtual rendering
                         displayConversations(conversations);
+                        
                         return conversations;
                     } else {
-                        this.logDebugInfo('Invalid Response Format', data);
-                        Utils.showNotification('Invalid API response format', 'error');
+                        console.error('Invalid response format:', data);
                         return [];
                     }
                 })
                 .catch(error => {
-                    // Hide loading state
+                    // Clear loading state
+                    isLoading = false;
                     Utils.hideLoading('conversations-list');
                     
-                    // Log detailed error
-                    this.logDebugInfo('Fetch Error', {
-                        message: error.message,
-                        stack: error.stack
-                    });
-                    
-                    // Show error notification
-                    Utils.showNotification('Network error: ' + error.message, 'error');
-                    
-                    // Return empty array
+                    console.error('Error fetching conversations:', error);
+                    Utils.showNotification('Error fetching conversations', 'error');
                     return [];
                 });
         },
         
         // Initialize conversations
         init: function() {
-            this.logDebugInfo('Initializing Conversations Module', {
-                authenticated: Auth.isAuthenticated(),
-                userId: Auth.getUserId() || 'Not available'
-            });
+            // Cache DOM elements
+            cachedContainer = getElement('conversations-list');
+            cachedHeader = getElement('current-conversation');
+            cachedStatus = getElement('conversation-status');
             
             // Only fetch if authenticated
-            if (Auth.isAuthenticated()) {
+            if (TokenManager.isAuthenticated()) {
                 this.fetchConversations();
+                
+                // Set up periodic refresh in the background (every 30 seconds)
+                setInterval(() => {
+                    if (!document.hidden) { // Only refresh when tab is visible
+                        this.fetchConversations(true);
+                    }
+                }, 30000);
             }
             
             // Refresh button
-            const refreshBtn = document.getElementById('refresh-conversations');
+            const refreshBtn = getElement('refresh-conversations');
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', () => {
-                    this.fetchConversations();
+                    this.fetchConversations(true); // Force refresh
                 });
             }
         }
     };
 })();
 
-// Initialize when document is ready and user is authenticated
+// Initialize when TokenManager is available
 document.addEventListener('DOMContentLoaded', function() {
-    // Add a debug container if it doesn't exist
-    if (!document.getElementById('debug-container')) {
-        const debugContainer = document.createElement('div');
-        debugContainer.id = 'debug-container';
-        debugContainer.style.position = 'fixed';
-        debugContainer.style.bottom = '10px';
-        debugContainer.style.right = '10px';
-        debugContainer.style.width = '400px';
-        debugContainer.style.height = '300px';
-        debugContainer.style.backgroundColor = 'rgba(0,0,0,0.8)';
-        debugContainer.style.color = 'white';
-        debugContainer.style.padding = '10px';
-        debugContainer.style.overflow = 'auto';
-        debugContainer.style.zIndex = '9999';
-        debugContainer.style.fontSize = '12px';
-        debugContainer.style.fontFamily = 'monospace';
-        debugContainer.style.borderRadius = '5px';
-        
-        // Add close button
-        const closeBtn = document.createElement('button');
-        closeBtn.textContent = 'Close Debug';
-        closeBtn.style.position = 'absolute';
-        closeBtn.style.top = '5px';
-        closeBtn.style.right = '5px';
-        closeBtn.style.padding = '2px 5px';
-        closeBtn.style.backgroundColor = '#f39c12';
-        closeBtn.style.border = 'none';
-        closeBtn.style.borderRadius = '3px';
-        closeBtn.style.cursor = 'pointer';
-        
-        closeBtn.addEventListener('click', function() {
-            debugContainer.style.display = 'none';
-        });
-        
-        debugContainer.appendChild(closeBtn);
-        
-        // Add title
-        const title = document.createElement('h3');
-        title.textContent = 'Debug Console';
-        title.style.marginBottom = '10px';
-        title.style.borderBottom = '1px solid #aaa';
-        title.style.paddingBottom = '5px';
-        
-        debugContainer.appendChild(title);
-        
-        // Add to body
-        document.body.appendChild(debugContainer);
-    }
-    
-    // Check if auth module is loaded
-    if (typeof Auth !== 'undefined') {
-        Conversations.logDebugInfo('Auth Module Check', 'Auth module is available');
-        
-        // Wait for auth to be initialized
+    // Check if TokenManager is loaded
+    if (typeof TokenManager !== 'undefined') {
+        // Wait for TokenManager to be initialized
         const checkAuth = setInterval(function() {
-            if (Auth.isAuthenticated()) {
-                Conversations.logDebugInfo('Auth State', 'User is authenticated');
+            if (TokenManager.isAuthenticated()) {
                 clearInterval(checkAuth);
                 Conversations.init();
-            } else {
-                Conversations.logDebugInfo('Auth State', 'User is not authenticated yet');
             }
         }, 1000);
         
         // Timeout after 10 seconds
         setTimeout(function() {
             clearInterval(checkAuth);
-            Conversations.logDebugInfo('Auth Timeout', 'Timed out waiting for authentication');
         }, 10000);
-    } else {
-        console.error('Auth module is not available');
     }
 });
