@@ -1,4 +1,5 @@
 import json
+import os
 import boto3
 import requests
 from botocore.exceptions import ClientError
@@ -7,8 +8,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Initialize DynamoDB resource and tables
 dynamodb = boto3.resource('dynamodb')
-token_table = dynamodb.Table('InstagramTokens')
-messages_table = dynamodb.Table('InstagramMessages')
+TOKEN_TABLE_NAME = os.environ.get('TOKEN_TABLE_NAME', 'InstaAI-Tokens')
+MESSAGES_TABLE_NAME = os.environ.get('MESSAGES_TABLE_NAME', 'InstaAI-Messages')
+token_table = dynamodb.Table(TOKEN_TABLE_NAME)
+messages_table = dynamodb.Table(MESSAGES_TABLE_NAME)
 
 def lambda_handler(event, context):
     try:

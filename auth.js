@@ -2,8 +2,8 @@
 const Auth = (function() {
     // API endpoints
     const API = {
-        exchangeToken: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token',
-        storeToken: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/store-token'
+        exchangeToken: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/exchange-token',
+        storeToken: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/store-token'
     };
     
     // Storage keys

@@ -2,8 +2,8 @@
 const Messages = (function() {
     // API endpoints
     const API = {
-        getMessages: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-messages',
-        sendMessage: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/send-message'
+        getMessages: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/get-messages',
+        sendMessage: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/send-message'
     };
     
     // Private state

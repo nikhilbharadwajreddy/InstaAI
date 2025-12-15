@@ -2,12 +2,12 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Lambda API endpoints from your functions
     const LAMBDA_APIS = {
-        exchangeToken: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token',
-        storeToken: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/store-token',
-        getConversations: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-conversations',
-        getMessages: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-messages',
-        sendMessage: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/send-message',
-        getEvents: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-events'
+        exchangeToken: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/exchange-token',
+        storeToken: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/store-token',
+        getConversations: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/get-conversations',
+        getMessages: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/get-messages',
+        sendMessage: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/send-message',
+        getEvents: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/get-events'
     };
 
     // State management

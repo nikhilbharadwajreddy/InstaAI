@@ -586,7 +586,7 @@
             
             logDebug('AUTH', 'Exchanging code for token', { codePrefix: code.substring(0, 5) + '...' });
             
-            fetch('https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token', {
+            fetch('https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/exchange-token', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -644,7 +644,7 @@
             
             logDebug('BACKEND', 'Storing token', { userId, tokenPrefix: token.substring(0, 5) + '...' });
             
-            fetch('https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/store-token', {
+            fetch('https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/store-token', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -691,7 +691,7 @@
             
             logDebug('API', 'Fetching conversations', { userId });
             
-            fetch(`https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-conversations?user_id=${userId}`)
+            fetch(`https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/get-conversations?user_id=${userId}`)
                 .then(response => {
                     logDebug('API', 'Conversations response', { 
                         status: response.status,
@@ -742,7 +742,7 @@
             
             logDebug('API', 'Fetching messages', { userId, conversationId });
             
-            fetch(`https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-messages?user_id=${userId}&conversation_id=${conversationId}`)
+            fetch(`https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/get-messages?user_id=${userId}&conversation_id=${conversationId}`)
                 .then(response => {
                     logDebug('API', 'Messages response', { 
                         status: response.status,
@@ -782,7 +782,7 @@
             
             logDebug('API', 'Fetching events', { userId });
             
-            fetch(`https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-events?user_id=${userId}&last_minutes=60`)
+            fetch(`https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/get-events?user_id=${userId}&last_minutes=60`)
                 .then(response => {
                     logDebug('API', 'Events response', { 
                         status: response.status,
@@ -834,7 +834,7 @@
             
             logDebug('API', 'Sending message', { userId, recipientId, messageText });
             
-            fetch('https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/send-message', {
+            fetch('https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/send-message', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

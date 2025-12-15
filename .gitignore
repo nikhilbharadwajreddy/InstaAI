@@ -1,0 +1,69 @@
+# AWS Credentials and Secrets
+*.pem
+*.key
+.env
+.env.local
+.aws/
+aws-credentials.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Lambda deployment packages
+deploy/packages/
+*.zip
+lambdas/*.zip
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+
+# Build files
+dist/
+build/
+*.min.js
+*.min.css
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# API Gateway ID (contains sensitive info)
+deploy/api_id.txt
+
+# Deployment scripts output
+deploy/packages/
+*.zip
+
+# Configuration files with secrets
+deploy/config.sh
+DEPLOYMENT.md
+
+# OS files
+Thumbs.db
+.DS_Store
+

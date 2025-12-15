@@ -5,12 +5,12 @@ import os
 from datetime import datetime
 
 # Store verification token in environment variables
-VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "1234")
-DYNAMODB_TABLE = os.environ.get("DYNAMODB_TABLE", "InstagramWebhookEvents")
+VERIFY_TOKEN = os.environ.get("VERIFY_TOKEN", "InstaAI_Webhook_Verify_1234")
+EVENTS_TABLE_NAME = os.environ.get("EVENTS_TABLE_NAME", "InstaAI-WebhookEvents")
 
 # Initialize DynamoDB client
 dynamodb = boto3.resource('dynamodb')
-events_table = dynamodb.Table(DYNAMODB_TABLE)
+events_table = dynamodb.Table(EVENTS_TABLE_NAME)
 
 def lambda_handler(event, context):
     try:

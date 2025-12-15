@@ -2,10 +2,10 @@
 const TokenManager = (function() {
     // API endpoints
     const API = {
-        checkUsername: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/check-username',
-        storeToken: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/store-token',
-        exchangeToken: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token',
-        deleteUser: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/delete-user'
+        checkUsername: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/check-username',
+        storeToken: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/store-token',
+        exchangeToken: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/exchange-token',
+        deleteUser: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/delete-user'
     };
     
     // Storage keys

@@ -6,7 +6,8 @@ from decimal import Decimal
 
 # Initialize DynamoDB client
 dynamodb = boto3.resource('dynamodb')
-events_table = dynamodb.Table('InstagramWebhookEvents')
+EVENTS_TABLE_NAME = os.environ.get('EVENTS_TABLE_NAME', 'InstaAI-WebhookEvents')
+events_table = dynamodb.Table(EVENTS_TABLE_NAME)
 
 def lambda_handler(event, context):
     try:

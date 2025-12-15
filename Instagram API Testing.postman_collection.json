@@ -1,0 +1,545 @@
+{
+	"info": {
+		"_postman_id": "4a34bd47-877e-4a60-8e44-25cad4a4acc4",
+		"name": "Instagram API Testing",
+		"description": "Collection for testing Instagram API endpoints in Development Mode",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "19369929"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Exchange Code for Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"{{auth_code}}\"\n}"
+						},
+						"url": {
+							"raw": "https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/exchange-token",
+							"protocol": "https",
+							"host": [
+								"76pohrq9ej",
+								"execute-api",
+								"us-east-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"exchange-token"
+							]
+						},
+						"description": "Exchange the authorization code for an access token.\n\nTo get the auth_code:\n1. Visit this URL in a browser: https://www.instagram.com/oauth/authorize?client_id=2388890974807228&redirect_uri=https://nikhilbharadwajreddy.github.io/InstaAI/insta_redirect.html&scope=pages_messaging,pages_manage_metadata,instagram_basic,instagram_manage_messaging&response_type=code\n2. After authorizing, you'll be redirected to a URL with 'code' parameter\n3. Copy this code value and set it as the 'auth_code' environment variable\n\nNOTE: Auth codes expire after a short time, so use quickly"
+					},
+					"response": []
+				},
+				{
+					"name": "Store Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"access_token\": \"{{access_token}}\",\n    \"token_type\": \"{{token_type}}\"\n}"
+						},
+						"url": {
+							"raw": "https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/store-token",
+							"protocol": "https",
+							"host": [
+								"76pohrq9ej",
+								"execute-api",
+								"us-east-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"store-token"
+							]
+						},
+						"description": "Store the access token in your backend system. Run this after successfully getting the token with the Exchange Code request."
+					},
+					"response": []
+				},
+				{
+					"name": "Long Lived Token",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "\n",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://graph.facebook.com/v22.0/oauth/access_token?grant_type=fb_exchange_token&client_id= 2388890974807228&client_secret= 41fbd6c7036faf31d7c0ff548acf0bd7&fb_exchange_token=IGAAh8rwX15LxBZAE9CRUJZAM0FLTk8zQzFiMEZAuTHBMMDFjNXhwbFUybEZAJRm9EY0JNZAXR2Q0FkeDVwbW9hcndkdnRZAanhxZA0dmRnlvOVJxTWhxOXJtM2pxUEhmWVJXM2pad0h0U05oVEktUDl3aV9nVFBkcTFIUnkwVFRMUC12ekVTN25NaVpITkRHbwZDZD",
+							"protocol": "https",
+							"host": [
+								"graph",
+								"facebook",
+								"com"
+							],
+							"path": [
+								"v22.0",
+								"oauth",
+								"access_token"
+							],
+							"query": [
+								{
+									"key": "grant_type",
+									"value": "fb_exchange_token"
+								},
+								{
+									"key": "client_id",
+									"value": " 2388890974807228"
+								},
+								{
+									"key": "client_secret",
+									"value": " 41fbd6c7036faf31d7c0ff548acf0bd7"
+								},
+								{
+									"key": "fb_exchange_token",
+									"value": "IGAAh8rwX15LxBZAE9CRUJZAM0FLTk8zQzFiMEZAuTHBMMDFjNXhwbFUybEZAJRm9EY0JNZAXR2Q0FkeDVwbW9hcndkdnRZAanhxZA0dmRnlvOVJxTWhxOXJtM2pxUEhmWVJXM2pad0h0U05oVEktUDl3aV9nVFBkcTFIUnkwVFRMUC12ekVTN25NaVpITkRHbwZDZD"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication and token management endpoints"
+		},
+		{
+			"name": "Instagram Messaging",
+			"item": [
+				{
+					"name": "Get Conversations",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-conversations?user_id={{user_id}}",
+							"protocol": "https",
+							"host": [
+								"76pohrq9ej",
+								"execute-api",
+								"us-east-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"get-conversations"
+							],
+							"query": [
+								{
+									"key": "user_id",
+									"value": "{{user_id}}"
+								}
+							]
+						},
+						"description": "Get all conversations for the Instagram Business account. Requires a valid user_id (Instagram Business Account ID) and stored access token."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Messages for Conversation",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-messages?user_id={{user_id}}&conversation_id={{conversation_id}}",
+							"protocol": "https",
+							"host": [
+								"76pohrq9ej",
+								"execute-api",
+								"us-east-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"get-messages"
+							],
+							"query": [
+								{
+									"key": "user_id",
+									"value": "{{user_id}}"
+								},
+								{
+									"key": "conversation_id",
+									"value": "{{conversation_id}}"
+								}
+							]
+						},
+						"description": "Get all messages in a specific conversation. First use the Get Conversations endpoint to find conversation_id values."
+					},
+					"response": []
+				},
+				{
+					"name": "Send Message",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"user_id\": \"{{user_id}}\",\n    \"recipient_id\": \"{{recipient_id}}\",\n    \"message\": \"Test message from API\"\n}"
+						},
+						"url": {
+							"raw": "https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/send-message",
+							"protocol": "https",
+							"host": [
+								"76pohrq9ej",
+								"execute-api",
+								"us-east-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"send-message"
+							]
+						},
+						"description": "Send a message to a user. The recipient_id should be obtained from conversation data."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for managing Instagram conversations and messages"
+		},
+		{
+			"name": "Direct Graph API Calls",
+			"item": [
+				{
+					"name": "Get User Profile",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://graph.facebook.com/v22.0/{{user_id}}?fields=id,username,name&access_token={{access_token}}",
+							"protocol": "https",
+							"host": [
+								"graph",
+								"facebook",
+								"com"
+							],
+							"path": [
+								"v22.0",
+								"{{user_id}}"
+							],
+							"query": [
+								{
+									"key": "fields",
+									"value": "id,username,name"
+								},
+								{
+									"key": "access_token",
+									"value": "{{access_token}}"
+								}
+							]
+						},
+						"description": "Get basic information about the connected Instagram Business account. This helps verify your token has correct permissions."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Conversations (Direct)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://graph.facebook.com/v22.0/{{user_id}}/conversations?fields=id,participants{id,username,profile_pic_url},updated_time&access_token={{access_token}}",
+							"protocol": "https",
+							"host": [
+								"graph",
+								"facebook",
+								"com"
+							],
+							"path": [
+								"v22.0",
+								"{{user_id}}",
+								"conversations"
+							],
+							"query": [
+								{
+									"key": "fields",
+									"value": "id,participants{id,username,profile_pic_url},updated_time"
+								},
+								{
+									"key": "access_token",
+									"value": "{{access_token}}"
+								}
+							]
+						},
+						"description": "Get conversations directly from Graph API. Useful for debugging when the Lambda function has issues."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Messages (Direct)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://graph.facebook.com/v22.0/{{conversation_id}}?fields=messages{id,message,from,to,created_time,attachments}&access_token={{access_token}}",
+							"protocol": "https",
+							"host": [
+								"graph",
+								"facebook",
+								"com"
+							],
+							"path": [
+								"v22.0",
+								"{{conversation_id}}"
+							],
+							"query": [
+								{
+									"key": "fields",
+									"value": "messages{id,message,from,to,created_time,attachments}"
+								},
+								{
+									"key": "access_token",
+									"value": "{{access_token}}"
+								}
+							]
+						},
+						"description": "Get messages for a conversation directly from Graph API. Requires a valid conversation_id."
+					},
+					"response": []
+				},
+				{
+					"name": "Send Message (Direct)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"recipient\": {\"id\": \"{{recipient_id}}\"},\n    \"message\": {\"text\": \"Direct API test message\"}\n}"
+						},
+						"url": {
+							"raw": "https://graph.facebook.com/v22.0/{{user_id}}/messages?access_token={{access_token}}",
+							"protocol": "https",
+							"host": [
+								"graph",
+								"facebook",
+								"com"
+							],
+							"path": [
+								"v22.0",
+								"{{user_id}}",
+								"messages"
+							],
+							"query": [
+								{
+									"key": "access_token",
+									"value": "{{access_token}}"
+								}
+							]
+						},
+						"description": "Send a message directly through Graph API. Useful for debugging when Lambda function has issues."
+					},
+					"response": []
+				}
+			],
+			"description": "Direct calls to the Facebook Graph API for testing"
+		},
+		{
+			"name": "Events and Webhooks",
+			"item": [
+				{
+					"name": "Get Recent Events",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-events?user_id={{user_id}}&last_minutes=30",
+							"protocol": "https",
+							"host": [
+								"76pohrq9ej",
+								"execute-api",
+								"us-east-1",
+								"amazonaws",
+								"com"
+							],
+							"path": [
+								"prod",
+								"get-events"
+							],
+							"query": [
+								{
+									"key": "user_id",
+									"value": "{{user_id}}"
+								},
+								{
+									"key": "last_minutes",
+									"value": "30"
+								}
+							]
+						},
+						"description": "Get recent webhook events for the Instagram account. Change 'last_minutes' to adjust the time period."
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for managing event notifications"
+		},
+		{
+			"name": "Userdetails",
+			"item": [
+				{
+					"name": "New Request",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://graph.instagram.com/v22.0/me?fields=user_id,username&access_token=IGAAh8rwX15LxBZAFBrcVFLUGMzRkZARc3ZA2NTJGTV9Hd190Slc0QjJPcDg2VkI4YlE4WkNRdFFpSFc1SGVJUC1uLVp1ZAEJ0eWdldHgxb2RQUEFUbHlyN2sxTGZARR0tGbENpdS1OckRFY1JRanl5NFE5RDZAB",
+							"protocol": "https",
+							"host": [
+								"graph",
+								"instagram",
+								"com"
+							],
+							"path": [
+								"v22.0",
+								"me"
+							],
+							"query": [
+								{
+									"key": "fields",
+									"value": "user_id,username"
+								},
+								{
+									"key": "access_token",
+									"value": "IGAAh8rwX15LxBZAFBrcVFLUGMzRkZARc3ZA2NTJGTV9Hd190Slc0QjJPcDg2VkI4YlE4WkNRdFFpSFc1SGVJUC1uLVp1ZAEJ0eWdldHgxb2RQUEFUbHlyN2sxTGZARR0tGbENpdS1OckRFY1JRanl5NFE5RDZAB"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Auto-extract tokens and IDs from auth response",
+					"if (pm.response.code === 200 && pm.info.requestName === \"Exchange Code for Token\") {",
+					"    try {",
+					"        const responseJson = pm.response.json();",
+					"        if (responseJson.access_token) {",
+					"            pm.environment.set(\"access_token\", responseJson.access_token);",
+					"            console.log(\"Set access_token environment variable\");",
+					"        }",
+					"        if (responseJson.user_id) {",
+					"            pm.environment.set(\"user_id\", responseJson.user_id);",
+					"            console.log(\"Set user_id environment variable\");",
+					"        }",
+					"        if (responseJson.token_type) {",
+					"            pm.environment.set(\"token_type\", responseJson.token_type);",
+					"            console.log(\"Set token_type environment variable\");",
+					"        }",
+					"    } catch (e) {",
+					"        console.error(\"Error extracting variables:\", e);",
+					"    }",
+					"}",
+					"",
+					"// Extract conversation_id from Get Conversations response",
+					"if (pm.response.code === 200 && pm.info.requestName === \"Get Conversations\") {",
+					"    try {",
+					"        const responseJson = pm.response.json();",
+					"        if (responseJson.data && responseJson.data.length > 0) {",
+					"            pm.environment.set(\"conversation_id\", responseJson.data[0].id);",
+					"            console.log(\"Set conversation_id environment variable to: \" + responseJson.data[0].id);",
+					"            ",
+					"            // Try to get recipient_id from first conversation",
+					"            if (responseJson.data[0].participants && responseJson.data[0].participants.data) {",
+					"                const participants = responseJson.data[0].participants.data;",
+					"                const recipient = participants.find(p => p.id !== pm.environment.get(\"user_id\"));",
+					"                if (recipient) {",
+					"                    pm.environment.set(\"recipient_id\", recipient.id);",
+					"                    console.log(\"Set recipient_id environment variable to: \" + recipient.id);",
+					"                }",
+					"            }",
+					"        }",
+					"    } catch (e) {",
+					"        console.error(\"Error extracting conversation variables:\", e);",
+					"    }",
+					"}"
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "user_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "conversation_id",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "recipient_id",
+			"value": "",
+			"type": "string"
+		}
+	]
+}

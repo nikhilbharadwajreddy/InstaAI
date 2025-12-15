@@ -2,7 +2,7 @@
 const Events = (function() {
     // API endpoints
     const API = {
-        getEvents: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-events'
+        getEvents: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/get-events'
     };
     
     // Private state

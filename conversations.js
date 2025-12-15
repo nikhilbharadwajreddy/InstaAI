@@ -2,7 +2,7 @@
 const Conversations = (function() {
     // API endpoints
     const API = {
-        getConversations: 'https://76pohrq9ej.execute-api.us-east-1.amazonaws.com/prod/get-conversations'
+        getConversations: 'https://mdpc9wjdgc.execute-api.us-east-1.amazonaws.com/prod/get-conversations'
     };
     
     // Private state

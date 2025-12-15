@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 # Initialize DynamoDB client and table
 dynamodb = boto3.resource('dynamodb')
-token_table = dynamodb.Table('InstagramTokens')
+TOKEN_TABLE_NAME = os.environ.get('TOKEN_TABLE_NAME', 'InstaAI-Tokens')
+token_table = dynamodb.Table(TOKEN_TABLE_NAME)
 
 def lambda_handler(event, context):
     try:

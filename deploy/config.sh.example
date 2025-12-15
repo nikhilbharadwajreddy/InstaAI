@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# AWS Configuration Template
+# Copy this file to config.sh and fill in your actual credentials
+# DO NOT commit config.sh to git
+
+# AWS Configuration
+export AWS_REGION=us-east-1
+export AWS_ACCOUNT_ID=your-account-id-here
+export AWS_ACCESS_KEY_ID=your-access-key-id-here
+export AWS_SECRET_ACCESS_KEY=your-secret-access-key-here
+
+# IAM Role
+export IAM_ROLE_NAME=TelegramLinkedInLambdaRole
+export IAM_ROLE_ARN=arn:aws:iam::your-account-id:role/TelegramLinkedInLambdaRole
+
+# Resource Prefix
+export PREFIX=InstaAI
+
+# Instagram Credentials
+export INSTAGRAM_CLIENT_SECRET=your-instagram-client-secret-here
+export VERIFY_TOKEN=InstaAI_Webhook_Verify_2024
+
+# DynamoDB Tables
+export TOKENS_TABLE="${PREFIX}Tokens"
+export EVENTS_TABLE="${PREFIX}WebhookEvents"
+export MESSAGES_TABLE="${PREFIX}Messages"
+
+# Lambda Function Names
+export EXCHANGE_TOKEN_FUNCTION="${PREFIX}ExchangeToken"
+export STORE_TOKEN_FUNCTION="${PREFIX}StoreToken"
+export GET_CONVERSATIONS_FUNCTION="${PREFIX}GetConversations"
+export GET_MESSAGES_FUNCTION="${PREFIX}GetMessages"
+export SEND_MESSAGE_FUNCTION="${PREFIX}SendMessage"
+export GET_EVENTS_FUNCTION="${PREFIX}GetEvents"
+export DELETE_USER_FUNCTION="${PREFIX}DeleteUser"
+export WEBHOOK_FUNCTION="${PREFIX}Webhook"
+
+# API Gateway
+export API_NAME="${PREFIX}API"
+export API_STAGE=prod
+
+# Configure AWS CLI
+aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+aws configure set region $AWS_REGION
+
+echo "Configuration loaded successfully!"
+
