@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connecting... - Your Insta</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="spinner"></div>
+                <h1>Connecting...</h1>
+                <p id="statusMessage">Please wait while we connect your account</p>
+            </div>
+            <div class="auth-body">
+                <div id="authStatus" class="auth-status"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        (async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
+            const errorReason = urlParams.get('error_reason');
+            const statusMessage = document.getElementById('statusMessage');
+            const statusDiv = document.getElementById('authStatus');
+            
+            if (error) {
+                statusMessage.textContent = 'Connection failed';
+                statusDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>Error: ${errorReason || error}</p>
+                        <button class="btn btn-primary" onclick="window.location.href='auth.html'">Try Again</button>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (!code) {
+                statusMessage.textContent = 'No authorization code received';
+                statusDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>No authorization code received. Please try again.</p>
+                        <button class="btn btn-primary" onclick="window.location.href='auth.html'">Try Again</button>
+                    </div>
+                `;
+                return;
+            }
+            
+            try {
+                statusMessage.textContent = 'Exchanging authorization code...';
+                
+                // Exchange code for token
+                const exchangeResponse = await fetch(API_CONFIG.getUrl('exchangeToken'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                
+                if (!exchangeResponse.ok) {
+                    throw new Error('Failed to exchange token');
+                }
+                
+                const tokenData = await exchangeResponse.json();
+                
+                if (!tokenData.access_token || !tokenData.user_id) {
+                    throw new Error('Invalid token response');
+                }
+                
+                statusMessage.textContent = 'Storing token...';
+                
+                // Store token
+                const username = localStorage.getItem('instagram_username') || '';
+                const storeResponse = await fetch(API_CONFIG.getUrl('storeToken'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        access_token: tokenData.access_token,
+                        user_id: tokenData.user_id,
+                        token_type: tokenData.token_type || 'long_lived',
+                        username: username
+                    })
+                });
+                
+                if (!storeResponse.ok) {
+                    throw new Error('Failed to store token');
+                }
+                
+                // Store in localStorage
+                localStorage.setItem('instagram_access_token', tokenData.access_token);
+                localStorage.setItem('instagram_user_id', tokenData.user_id);
+                localStorage.setItem('instagram_token_type', tokenData.token_type || 'long_lived');
+                
+                statusMessage.textContent = 'Success!';
+                statusDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i>
+                        <p>Account connected successfully!</p>
+                        <button class="btn btn-primary" onclick="window.location.href='index.html'">Go to Dashboard</button>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Auth error:', error);
+                statusMessage.textContent = 'Connection failed';
+                statusDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <p>Error: ${error.message}</p>
+                        <button class="btn btn-primary" onclick="window.location.href='auth.html'">Try Again</button>
+                    </div>
+                `;
+            }
+        })();
+    </script>
+</body>
+</html>
+

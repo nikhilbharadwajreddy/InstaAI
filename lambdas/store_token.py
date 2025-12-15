@@ -18,6 +18,20 @@ def lambda_handler(event, context):
     try:
         logger.info(f"Received Event: {json.dumps(event)}")
         
+        # Handle CORS preflight (OPTIONS request)
+        http_method = event.get("httpMethod") or event.get("requestContext", {}).get("httpMethod", "")
+        if http_method == "OPTIONS":
+            return {
+                "statusCode": 200,
+                "headers": {
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+                    "Access-Control-Max-Age": "86400"
+                },
+                "body": ""
+            }
+        
         # Parse the request body
         body = json.loads(event.get('body', '{}'))
         access_token = body.get('access_token')

@@ -239,16 +239,28 @@
             // Make API request
             return fetch(API.storeToken, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(payload),
+                mode: 'cors',
+                credentials: 'omit'
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || `HTTP ${response.status}: ${response.statusText}`);
+                    });
+                }
+                return response.json();
+            })
             .then(data => {
                 logDebug('Store token response', data);
                 return data;
             })
             .catch(error => {
-                logDebug('Error storing token', error);
+                logDebug('Error storing token', { error: error.message, stack: error.stack });
                 return { error: error.message };
             });
         }
@@ -305,14 +317,27 @@
             
             fetch(API.exchangeToken, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code: code })
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ code: code }),
+                mode: 'cors',
+                credentials: 'omit'
             })
             .then(response => {
                 logDebug('Token exchange response status', { 
                     status: response.status,
-                    statusText: response.statusText
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers.entries())
                 });
+                
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.error || `HTTP ${response.status}: ${response.statusText}`);
+                    });
+                }
+                
                 return response.json();
             })
             .then(data => {

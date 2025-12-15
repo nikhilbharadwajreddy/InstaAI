@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 # Instagram App credentials
 CLIENT_ID = "2388890974807228"
 CLIENT_SECRET = os.getenv("INSTAGRAM_CLIENT_SECRET")  # Ensure this is set correctly in your environment
-REDIRECT_URI = "https://nikhilbharadwajreddy.github.io/InstaAI/insta_redirect.html"
+REDIRECT_URI = "http://localhost:8000/auth-callback.html"
 
 def lambda_handler(event, context):
     try:

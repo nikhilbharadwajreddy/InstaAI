@@ -1,0 +1,13 @@
+{
+  "name": "your-insta",
+  "version": "1.0.0",
+  "description": "Instagram Management Interface",
+  "scripts": {
+    "dev": "python3 -m http.server 8000",
+    "start": "python3 -m http.server 8000"
+  },
+  "keywords": ["instagram", "management", "messaging"],
+  "author": "",
+  "license": "MIT"
+}
+

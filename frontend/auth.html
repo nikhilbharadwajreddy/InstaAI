@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect Instagram - Your Insta</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <i class="fab fa-instagram"></i>
+                <h1>Your Insta</h1>
+                <p>Connect your Instagram account to get started</p>
+            </div>
+            <div class="auth-body">
+                <form id="authForm">
+                    <div class="form-group">
+                        <label for="username">Instagram Username</label>
+                        <input type="text" id="username" name="username" placeholder="Enter your Instagram username" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">
+                        <i class="fab fa-instagram"></i> Connect Instagram
+                    </button>
+                </form>
+                <div id="authStatus" class="auth-status"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const statusDiv = document.getElementById('authStatus');
+            
+            statusDiv.innerHTML = '<div class="loading">Connecting...</div>';
+            
+            // Redirect to Instagram OAuth
+            const clientId = API_CONFIG.INSTAGRAM.CLIENT_ID;
+            const redirectUri = encodeURIComponent(API_CONFIG.INSTAGRAM.REDIRECT_URI);
+            const scope = encodeURIComponent(API_CONFIG.INSTAGRAM.SCOPE);
+            const authUrl = `https://api.instagram.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code&state=${username}`;
+            
+            // Store username for later use
+            localStorage.setItem('instagram_username', username);
+            
+            window.location.href = authUrl;
+        });
+    </script>
+</body>
+</html>
+
